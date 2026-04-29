@@ -39,9 +39,10 @@ The intended build order is:
 
 1. Define Curatarr's adapter and workflow boundaries.
 2. Add a YAML configuration model. Initial loader is present.
-3. Introduce Curatarr database tables for workflow state, identity mappings, pending decisions, approvals, operational issues, jobs, and audit log.
-4. Rebuild integrations behind adapters for Ryot, Radarr, Sonarr, Jellyfin, Telegram, and metadata.
-5. Implement Telegram workflows and background reconciliation jobs.
+3. Add domain primitives for media identity, durable state, runtime state, and match confidence. Initial model is present.
+4. Introduce Curatarr database tables for workflow state, identity mappings, pending decisions, approvals, operational issues, jobs, and audit log.
+5. Rebuild integrations behind adapters for Ryot, Radarr, Sonarr, Jellyfin, Telegram, and metadata.
+6. Implement Telegram workflows and background reconciliation jobs.
 
 ## Local Bootstrap
 
