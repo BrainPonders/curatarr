@@ -41,9 +41,10 @@ The intended build order is:
 2. Add a YAML configuration model. Initial loader is present.
 3. Add domain primitives for media identity, durable state, runtime state, and match confidence. Initial model is present.
 4. Define adapter interfaces for Ryot, Radarr, Sonarr, Jellyfin, Telegram, and metadata. Initial protocols are present.
-5. Introduce Curatarr database tables for workflow state, identity mappings, pending decisions, approvals, operational issues, jobs, and audit log.
-6. Rebuild integrations behind adapters for Ryot, Radarr, Sonarr, Jellyfin, Telegram, and metadata.
-7. Implement Telegram workflows and background reconciliation jobs.
+5. Add read-only Ryot durable-state mapping. Initial GraphQL client and adapter are present.
+6. Introduce Curatarr database tables for workflow state, identity mappings, pending decisions, approvals, operational issues, jobs, and audit log.
+7. Rebuild remaining integrations behind adapters for Radarr, Sonarr, Jellyfin, Telegram, and metadata.
+8. Implement Telegram workflows and background reconciliation jobs.
 
 ## Local Bootstrap
 
