@@ -1,0 +1,51 @@
+# Curatarr
+
+Telegram-first media request and library management assistant for Ryot, Radarr, Sonarr, and Jellyfin.
+
+Curatarr is a new project derived from lessons learned in the Searcharr lineage, but it is not a continuation of the old Searcharr runtime. The current repository baseline is documentation-first: it preserves the Curatarr architecture, maintainer workflow, and deployment structure while runtime implementation is rebuilt around the Curatarr model.
+
+## Product Direction
+
+Curatarr treats Ryot as the durable source of truth for watched history, archived titles, ownership, and active media intent. Radarr and Sonarr remain execution systems for acquisition, monitoring, profiles, quality, and files. Jellyfin is used as a playback and reception signal where applicable.
+
+Curatarr's job is to orchestrate:
+
+- search, add, and reactivation flows
+- already-watched warnings
+- post-watch keep/archive decisions
+- cleanup and missing-file decisions
+- Ryot, Radarr, Sonarr, and Jellyfin reconciliation
+- admin-facing operational issues
+
+See [documentation/System Architecture.md](documentation/System%20Architecture.md) for the current doctrine.
+
+## Repository State
+
+This repository currently contains the Curatarr planning and maintainer baseline. The old Searcharr runtime code has been removed from the tracked project so Curatarr can be implemented cleanly.
+
+Current retained surfaces:
+
+- `documentation/` contains architecture, governance, and lineage/reference material.
+- `maintainer/` contains maintainer workflow, development, release, Docker, and test scaffolding.
+- `docker/compose/` contains deployment example structure to be updated as the runtime takes shape.
+- `.local/` is the ignored local-only safety bucket and must not be committed.
+
+## Implementation Direction
+
+The intended build order is:
+
+1. Define Curatarr's adapter and workflow boundaries.
+2. Add a YAML configuration model.
+3. Introduce Curatarr database tables for workflow state, identity mappings, pending decisions, approvals, operational issues, jobs, and audit log.
+4. Rebuild integrations behind adapters for Ryot, Radarr, Sonarr, Jellyfin, Telegram, and metadata.
+5. Implement Telegram workflows and background reconciliation jobs.
+
+Searcharr code may be consulted as reference only. New Curatarr runtime code should follow the architecture in `documentation/`.
+
+## Maintainer Notes
+
+The Docker and release helpers are scaffold-level only until a real Curatarr runtime exists. Do not publish container images or releases from this repository until the runtime contract has been re-established.
+
+## Reference Lineage
+
+Curatarr was informed by Searcharr and Searcharr-nxg experiments, but the project is now owned as a standalone architecture and implementation.
