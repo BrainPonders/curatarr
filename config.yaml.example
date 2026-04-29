@@ -1,0 +1,66 @@
+# Curatarr configuration template.
+#
+# Runtime secrets may reference environment variables with ${ENV_NAME}.
+# Startup fails if a referenced environment variable is missing.
+
+users:
+  admins:
+    - 123456789
+  standard:
+    - 987654321
+
+telegram:
+  bot_token: ${CURATARR_TELEGRAM_BOT_TOKEN}
+
+ryot:
+  url: http://ryot:8000
+  api_key: ${CURATARR_RYOT_API_KEY}
+  scan_interval: 30m
+  collections:
+    archived: Archived
+    owned: Owned
+    radarr: Radarr
+    sonarr: Sonarr
+
+radarr:
+  url: http://radarr:7878
+  api_key: ${CURATARR_RADARR_API_KEY}
+  default_profile: Movies > 4K EN+FR
+  root_folder: /data/movies
+  exclusion_sync: true
+
+sonarr:
+  url: http://sonarr:8989
+  api_key: ${CURATARR_SONARR_API_KEY}
+  default_profile: Shows > 4K EN+FR
+  root_folder: /data/series
+  exclusion_sync: true
+
+jellyfin:
+  url: http://jellyfin:8096
+  api_key: ${CURATARR_JELLYFIN_API_KEY}
+  reception_checks:
+    enabled: true
+    first_check_delay: 5m
+    retry_interval: 15m
+    timeout: 2h
+
+policy:
+  approvals:
+    default_mode: confirm_user
+    timeout_defaults:
+      normal_user_media_decision: 24h
+      admin_operational_issue: 24h
+    actions:
+      add_new_title: confirm_user
+      reactivate_archived_title: confirm_user
+      first_import_owned_sync: auto_apply
+      jellyfin_reception_failure: confirm_admin
+      destructive_drift_correction: confirm_admin
+      weak_match_action: disabled
+
+identity:
+  weak_match_action: disabled
+
+logging:
+  level: INFO

@@ -1,11 +1,10 @@
 # owner: project maintainer
 # date: 2026-03-23
-# service: Curatarr scaffold container
-# purpose: placeholder image for the Curatarr repository baseline
+# service: Curatarr application container
+# purpose: application image for the Curatarr runtime foundation
 # docs: maintainer/README.md, maintainer/development/README.md
 # deployment notes:
-#   - This image does not contain the future Curatarr runtime yet.
-#   - It exists only to keep maintainer Docker scaffolding testable.
+#   - This image currently supports CLI bootstrap and configuration validation.
 # history:
 #   - 2026-03-10: Initialized generic template image.
 #   - 2026-03-23: Adapted the image for the former Searcharr-nxg Python service runtime.
@@ -18,7 +17,7 @@ ARG BUILD_NUMBER=local
 ARG VERSION=dev-local
 
 LABEL org.opencontainers.image.title="Curatarr"
-LABEL org.opencontainers.image.description="Curatarr scaffold container; runtime not implemented yet"
+LABEL org.opencontainers.image.description="Telegram-first media request and library management assistant"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.source="https://github.com/BrainPonders/curatarr"
 
@@ -33,7 +32,12 @@ USER root
 WORKDIR /app
 
 COPY README.md ./README.md
+COPY pyproject.toml ./pyproject.toml
+COPY src ./src
 COPY documentation ./documentation
+
+RUN set -eux; \
+    python -m pip install --no-cache-dir .
 
 RUN mkdir -p /app/data && chown -R 1000:1000 /app
 COPY maintainer/docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

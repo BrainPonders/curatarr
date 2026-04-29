@@ -4,24 +4,33 @@ set -eu
 mkdir -p "${APP_DATA_DIR:-/app/data}" 2>/dev/null || true
 
 echo "========================================"
-echo "  Curatarr Scaffold Container"
+echo "  Curatarr Container"
 echo "  Version: ${PROJECT_VERSION:-dev-local}"
 echo "  Build: ${PROJECT_BUILD_NUMBER:-local}"
-echo "  Runtime: not implemented"
+echo "  Config: ${CURATARR_CONFIG_FILE:-/app/config.yaml}"
 echo "========================================"
 
 case "${1:-}" in
   --help|-h)
-    echo "Curatarr runtime is not implemented yet. See documentation/System Architecture.md."
+    if command -v curatarr >/dev/null 2>&1; then
+      exec curatarr --help
+    fi
+    echo "Curatarr command is not installed in this shell. In the container, this runs curatarr --help."
     exit 0
     ;;
   --version|-v)
+    if command -v curatarr >/dev/null 2>&1; then
+      exec curatarr --version
+    fi
     echo "${PROJECT_VERSION:-dev-local}"
     exit 0
     ;;
   "")
-    echo "Curatarr runtime is not implemented yet. Container scaffold is healthy."
-    exit 0
+    if ! command -v curatarr >/dev/null 2>&1; then
+      echo "ERROR: curatarr command is not installed."
+      exit 127
+    fi
+    exec curatarr --config "${CURATARR_CONFIG_FILE:-/app/config.yaml}" --check-config
     ;;
 esac
 

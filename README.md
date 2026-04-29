@@ -21,11 +21,14 @@ See [documentation/System Architecture.md](documentation/System%20Architecture.m
 
 ## Repository State
 
-This repository currently contains the Curatarr planning and maintainer baseline. The old Searcharr runtime code has been removed from the tracked project so Curatarr can be implemented cleanly.
+This repository currently contains the Curatarr planning baseline plus the first runtime foundation: package identity, CLI bootstrap, and YAML configuration loading.
 
 Current retained surfaces:
 
 - `documentation/` contains architecture, governance, and lineage/reference material.
+- `src/curatarr/` contains the new Curatarr runtime package.
+- `config.yaml.example` contains the initial YAML configuration template.
+- `tests/` contains focused runtime foundation tests.
 - `maintainer/` contains maintainer workflow, development, release, Docker, and test scaffolding.
 - `docker/compose/` contains deployment example structure to be updated as the runtime takes shape.
 - `.local/` is the ignored local-only safety bucket and must not be committed.
@@ -35,16 +38,32 @@ Current retained surfaces:
 The intended build order is:
 
 1. Define Curatarr's adapter and workflow boundaries.
-2. Add a YAML configuration model.
+2. Add a YAML configuration model. Initial loader is present.
 3. Introduce Curatarr database tables for workflow state, identity mappings, pending decisions, approvals, operational issues, jobs, and audit log.
 4. Rebuild integrations behind adapters for Ryot, Radarr, Sonarr, Jellyfin, Telegram, and metadata.
 5. Implement Telegram workflows and background reconciliation jobs.
+
+## Local Bootstrap
+
+Install the package in a virtual environment:
+
+```bash
+python -m pip install .
+```
+
+Check a configuration file:
+
+```bash
+curatarr --config config.yaml --check-config
+```
+
+The runtime workflows are not implemented yet; the CLI currently validates configuration and reports bootstrap status.
 
 Searcharr code may be consulted as reference only. New Curatarr runtime code should follow the architecture in `documentation/`.
 
 ## Maintainer Notes
 
-The Docker and release helpers are scaffold-level only until a real Curatarr runtime exists. Do not publish container images or releases from this repository until the runtime contract has been re-established.
+The Docker and release helpers are scaffold-level until real Curatarr workflows exist. Do not publish production releases from this repository until the runtime contract has been re-established.
 
 ## Reference Lineage
 

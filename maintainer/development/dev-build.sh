@@ -14,11 +14,13 @@ PROJECT_IMAGE_NAME="${PROJECT_IMAGE_NAME:-$PROJECT_SLUG}"
 PROJECT_DEV_PROJECT="${PROJECT_DEV_PROJECT:-${PROJECT_SLUG}-dev}"
 PROJECT_DEV_ROOT="${PROJECT_DEV_ROOT:-${REPO_PARENT_DIR}/${PROJECT_SLUG}-dev}"
 PROJECT_DOCKERFILE_PATH="${PROJECT_DOCKERFILE_PATH:-$REPO_DIR/maintainer/docker/Dockerfile}"
+PROJECT_CONFIG_SAMPLE_PATH="${PROJECT_CONFIG_SAMPLE_PATH:-$REPO_DIR/config.yaml.example}"
 PROJECT_DEV_UP="${PROJECT_DEV_UP:-0}"
 
 RUNTIME_COMPOSE="$PROJECT_DEV_ROOT/docker-compose.yml"
 RUNTIME_ENV="$PROJECT_DEV_ROOT/.env"
 RUNTIME_DATA_DIR="$PROJECT_DEV_ROOT/data"
+RUNTIME_CONFIG="$PROJECT_DEV_ROOT/config.yaml"
 TEMPLATE_COMPOSE="$REPO_DIR/docker/compose/docker-compose-dev.yml.example"
 TEMPLATE_ENV="$REPO_DIR/docker/compose/.env.dev.example"
 
@@ -49,6 +51,11 @@ fi
 
 if [ ! -f "$TEMPLATE_ENV" ]; then
     echo "ERROR: Missing dev env template: $TEMPLATE_ENV"
+    exit 1
+fi
+
+if [ ! -f "$PROJECT_CONFIG_SAMPLE_PATH" ]; then
+    echo "ERROR: Missing config sample: $PROJECT_CONFIG_SAMPLE_PATH"
     exit 1
 fi
 
@@ -91,6 +98,11 @@ elif ! cmp -s "$TEMPLATE_ENV" "$RUNTIME_ENV"; then
     echo "Template updated: ${RUNTIME_ENV}.new (existing file preserved)"
 fi
 
+if [ ! -f "$RUNTIME_CONFIG" ]; then
+    cp "$PROJECT_CONFIG_SAMPLE_PATH" "$RUNTIME_CONFIG"
+    echo "Created ${RUNTIME_CONFIG}"
+fi
+
 if grep -q '^PROJECT_IMAGE=' "$RUNTIME_ENV"; then
     sed -i.bak "s|^PROJECT_IMAGE=.*$|PROJECT_IMAGE=${IMAGE_REF}|" "$RUNTIME_ENV"
     rm -f "${RUNTIME_ENV}.bak"
@@ -116,4 +128,5 @@ echo "== Done =="
 echo "Image: ${IMAGE_REF}"
 echo "Compose project: ${PROJECT_DEV_PROJECT}"
 echo "Runtime folder: ${PROJECT_DEV_ROOT}"
-echo "Review ${RUNTIME_ENV} and ${RUNTIME_COMPOSE} before starting the container."
+echo "Config file: ${RUNTIME_CONFIG}"
+echo "Review ${RUNTIME_ENV}, ${RUNTIME_COMPOSE}, and ${RUNTIME_CONFIG} before starting the container."

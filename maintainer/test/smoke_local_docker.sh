@@ -23,4 +23,10 @@ docker run --rm "$IMAGE_TAG" --version >/dev/null
 echo "== Check help output =="
 docker run --rm "$IMAGE_TAG" --help >/dev/null
 
+echo "== Check missing config fails cleanly =="
+docker run --rm "$IMAGE_TAG" >/dev/null 2>&1 && {
+  echo "ERROR: container should require a config file."
+  exit 1
+}
+
 echo "Smoke checks passed."
