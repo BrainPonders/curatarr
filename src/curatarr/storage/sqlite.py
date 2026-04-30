@@ -196,6 +196,25 @@ class Storage:
             return None
         return _pending_decision_from_row(row)
 
+    def update_pending_decision_status(self, decision_id: int, status: str) -> PendingDecision:
+        normalized_status = status.strip().lower()
+        if normalized_status not in {"open", "resolved", "superseded", "expired"}:
+            raise ValueError(f"Unsupported pending decision status {status!r}.")
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE pending_decision
+                SET status = ?
+                WHERE id = ?
+                """,
+                (normalized_status, decision_id),
+            )
+        if cursor.rowcount != 1:
+            raise StorageError(f"Pending decision {decision_id} does not exist.")
+        decision = self.get_pending_decision(decision_id)
+        assert decision is not None
+        return decision
+
     def append_audit_log(
         self,
         *,

@@ -68,6 +68,21 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(loaded.status, "open")
         self.assertEqual(loaded.context["title"], "Spider-Man 2")
 
+    def test_pending_decision_status_can_be_updated(self) -> None:
+        storage = self._storage()
+        created = storage.create_pending_decision(
+            media_key="tmdb:558",
+            decision_type="post_watch",
+            audience="user:1",
+            state_fingerprint="abc123",
+            context={},
+        )
+
+        updated = storage.update_pending_decision_status(created.decision_id, "superseded")
+
+        self.assertEqual(updated.status, "superseded")
+        self.assertEqual(storage.get_pending_decision(created.decision_id), updated)
+
     def test_audit_log_can_be_appended(self) -> None:
         storage = self._storage()
 
