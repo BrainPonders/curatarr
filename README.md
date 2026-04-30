@@ -48,8 +48,9 @@ The intended build order is:
 9. Add metadata search and cross-resolution. Initial TMDB adapter is present.
 10. Add read-only Radarr movie lookup and runtime-state mapping. Initial adapter is present.
 11. Wire read-only metadata, Ryot, optional Arr lookup, identity matching, and workflow planning into a search decision service. Initial service is present.
-12. Rebuild remaining integrations behind adapters for Sonarr, Jellyfin, and Telegram.
-13. Implement Telegram execution flows and background reconciliation jobs.
+12. Add read-only Sonarr show lookup and runtime-state mapping. Initial adapter is present.
+13. Rebuild remaining integrations behind adapters for Jellyfin and Telegram.
+14. Implement Telegram execution flows and background reconciliation jobs.
 
 ## Local Bootstrap
 
