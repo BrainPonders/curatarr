@@ -44,8 +44,9 @@ The intended build order is:
 5. Add read-only Ryot durable-state mapping. Initial GraphQL client and adapter are present.
 6. Introduce Curatarr database tables for workflow state, identity mappings, pending decisions, approvals, operational issues, jobs, and audit log. Initial SQLite schema is present.
 7. Add identity matching over exact identifiers, confirmed mappings, metadata cross-resolution, and title/year fallback. Initial service is present.
-8. Rebuild remaining integrations behind adapters for Radarr, Sonarr, Jellyfin, Telegram, and metadata.
-9. Implement Telegram workflows and background reconciliation jobs.
+8. Implement pure workflow planning for search/add/reactivation decisions. Initial planner is present.
+9. Rebuild remaining integrations behind adapters for Radarr, Sonarr, Jellyfin, Telegram, and metadata.
+10. Implement Telegram execution flows and background reconciliation jobs.
 
 ## Local Bootstrap
 
