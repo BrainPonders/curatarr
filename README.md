@@ -46,8 +46,9 @@ The intended build order is:
 7. Add identity matching over exact identifiers, confirmed mappings, metadata cross-resolution, and title/year fallback. Initial service is present.
 8. Implement pure workflow planning for search/add/reactivation decisions. Initial planner is present.
 9. Add metadata search and cross-resolution. Initial TMDB adapter is present.
-10. Rebuild remaining integrations behind adapters for Radarr, Sonarr, Jellyfin, and Telegram.
-11. Implement Telegram execution flows and background reconciliation jobs.
+10. Wire read-only metadata, Ryot, optional Arr lookup, identity matching, and workflow planning into a search decision service. Initial service is present.
+11. Rebuild remaining integrations behind adapters for Radarr, Sonarr, Jellyfin, and Telegram.
+12. Implement Telegram execution flows and background reconciliation jobs.
 
 ## Local Bootstrap
 
