@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 
 from curatarr.domain import MediaIdentity, MediaItem
 from curatarr.storage import PendingDecision, Storage
 from curatarr.workflows.search_add import DecisionPath, DecisionSummary
+
+
+@dataclass(frozen=True)
+class PersistedDecisionSummary:
+    """Search decision summary paired with its durable pending decision."""
+
+    summary: DecisionSummary
+    pending_decision: PendingDecision
 
 
 @dataclass(frozen=True)
@@ -40,6 +50,12 @@ class PendingDecisionService:
         if decision.state_fingerprint != current_state_fingerprint:
             return self.mark_superseded(decision_id)
         return decision
+
+
+def search_add_state_fingerprint(summary: DecisionSummary) -> str:
+    payload = _decision_context(summary)
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _decision_type(summary: DecisionSummary) -> str:

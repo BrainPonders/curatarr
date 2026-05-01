@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from curatarr.adapters import AdapterResult
 from curatarr.domain import ArrRuntimeState, DurableState, MediaIdentity, MediaItem, MediaType
+from curatarr.services import PendingDecisionService, search_add_state_fingerprint
 from curatarr.services.identity import IdentityMatcher
 from curatarr.services.search import SearchDecisionService
+from curatarr.storage import Storage
 from curatarr.workflows.search_add import DecisionPath, WorkflowAction
 
 
@@ -83,6 +87,7 @@ class SearchDecisionServiceTests(unittest.TestCase):
         candidate: MediaItem,
         ryot_item: MediaItem | None = None,
         arr_item: MediaItem | None = None,
+        pending_decision_service: PendingDecisionService | None = None,
     ) -> SearchDecisionService:
         metadata = _FakeMetadataAdapter((candidate,))
         return SearchDecisionService(
@@ -90,6 +95,7 @@ class SearchDecisionServiceTests(unittest.TestCase):
             ryot_adapter=_FakeRyotAdapter(ryot_item),
             radarr_adapter=_FakeRadarrAdapter(arr_item),
             identity_matcher=IdentityMatcher(metadata_adapter=metadata),
+            pending_decision_service=pending_decision_service,
         )
 
     def test_unknown_candidate_plans_add(self) -> None:
@@ -150,6 +156,37 @@ class SearchDecisionServiceTests(unittest.TestCase):
         assert summary is not None
         self.assertTrue(summary.requires_identity_confirmation)
         self.assertTrue(summary.destructive_actions_blocked)
+
+    def test_first_candidate_can_be_planned_and_persisted(self) -> None:
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        storage = Storage(Path(temp_dir.name) / "curatarr.sqlite")
+        self.addCleanup(storage.close)
+        storage.initialize()
+        candidate = _movie()
+        service = self._service(candidate=candidate, pending_decision_service=PendingDecisionService(storage))
+
+        persisted = service.plan_and_persist_for_first_candidate(
+            "Spider-Man 2",
+            MediaType.MOVIE,
+            audience="telegram:user:1",
+        )
+
+        assert persisted is not None
+        self.assertEqual(persisted.summary.path, DecisionPath.ADD_NEW)
+        self.assertEqual(persisted.pending_decision.media_key, "tmdb:558")
+        self.assertEqual(persisted.pending_decision.decision_type, "search_add")
+        self.assertEqual(
+            persisted.pending_decision.state_fingerprint,
+            search_add_state_fingerprint(persisted.summary),
+        )
+        self.assertEqual(persisted.pending_decision.context["candidate"]["title"], "Spider-Man 2")
+
+    def test_persisting_without_configured_storage_fails_clearly(self) -> None:
+        service = self._service(candidate=_movie())
+
+        with self.assertRaisesRegex(ValueError, "Pending decision persistence is not configured"):
+            service.plan_and_persist_for_candidate(_movie(), audience="telegram:user:1")
 
 
 if __name__ == "__main__":

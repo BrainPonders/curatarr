@@ -50,8 +50,9 @@ The intended build order is:
 11. Wire read-only metadata, Ryot, optional Arr lookup, identity matching, and workflow planning into a search decision service. Initial service is present.
 12. Add read-only Sonarr show lookup and runtime-state mapping. Initial adapter is present.
 13. Persist pending search/add decisions with revalidation fingerprints. Initial service is present.
-14. Rebuild remaining integrations behind adapters for Jellyfin and Telegram.
-15. Implement Telegram execution flows and background reconciliation jobs.
+14. Wire search decisions to optional pending-decision persistence. Initial orchestration path is present.
+15. Rebuild remaining integrations behind adapters for Jellyfin and Telegram.
+16. Implement Telegram execution flows and background reconciliation jobs.
 
 ## Local Bootstrap
 

@@ -6,6 +6,11 @@ from dataclasses import dataclass
 
 from curatarr.adapters import MetadataAdapter, RadarrAdapter, RyotAdapter, SonarrAdapter
 from curatarr.domain import MediaIdentity, MediaItem, MediaType
+from curatarr.services.decisions import (
+    PendingDecisionService,
+    PersistedDecisionSummary,
+    search_add_state_fingerprint,
+)
 from curatarr.services.identity import IdentityMatcher
 from curatarr.workflows.search_add import DecisionSummary, SearchAddPlanner
 
@@ -19,6 +24,7 @@ class SearchDecisionService:
     identity_matcher: IdentityMatcher
     radarr_adapter: RadarrAdapter | None = None
     sonarr_adapter: SonarrAdapter | None = None
+    pending_decision_service: PendingDecisionService | None = None
 
     def search(self, query: str, media_type: MediaType) -> tuple[MediaItem, ...]:
         """Search metadata and return Curatarr domain candidates."""
@@ -40,6 +46,38 @@ class SearchDecisionService:
         arr_item = self._lookup_arr(candidate)
         planner = SearchAddPlanner(identity_matcher=self.identity_matcher)
         return planner.plan(candidate=candidate, ryot_item=ryot_item, arr_item=arr_item)
+
+    def plan_and_persist_for_first_candidate(
+        self,
+        query: str,
+        media_type: MediaType,
+        *,
+        audience: str,
+    ) -> PersistedDecisionSummary | None:
+        """Search metadata, plan the first candidate, and persist its pending decision."""
+
+        candidates = self.search(query, media_type)
+        if not candidates:
+            return None
+        return self.plan_and_persist_for_candidate(candidates[0], audience=audience)
+
+    def plan_and_persist_for_candidate(
+        self,
+        candidate: MediaItem,
+        *,
+        audience: str,
+    ) -> PersistedDecisionSummary:
+        """Plan a selected candidate and persist a revalidatable pending decision."""
+
+        if self.pending_decision_service is None:
+            raise ValueError("Pending decision persistence is not configured.")
+        summary = self.plan_for_candidate(candidate)
+        pending_decision = self.pending_decision_service.persist_search_add_decision(
+            summary,
+            audience=audience,
+            state_fingerprint=search_add_state_fingerprint(summary),
+        )
+        return PersistedDecisionSummary(summary=summary, pending_decision=pending_decision)
 
     def _lookup_ryot(self, candidate: MediaItem) -> MediaItem | None:
         for identity in _identity_priority(candidate):
