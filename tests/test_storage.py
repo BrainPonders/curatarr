@@ -37,6 +37,27 @@ class StorageTests(unittest.TestCase):
         self.assertIn("operational_issue", table_names)
         self.assertIn("job_run", table_names)
         self.assertIn("audit_log", table_names)
+        self.assertIn("viewing_event", table_names)
+
+    def test_newer_workflow_schema_is_not_downgraded(self):
+        storage = self._storage()
+        with storage.connection:
+            storage.connection.execute("UPDATE schema_version SET version=?", (SCHEMA_VERSION + 1,))
+        from curatarr.storage import StorageError
+        with self.assertRaises(StorageError):
+            storage.initialize()
+        self.assertEqual(storage.schema_version(), SCHEMA_VERSION + 1)
+
+    def test_version_two_upgrade_preserves_decisions_and_adds_event_ledger(self):
+        storage = self._storage()
+        decision = storage.create_pending_decision(media_key="ryot:1", decision_type="legacy", audience="admin", state_fingerprint="x")
+        with storage.connection:
+            storage.connection.execute("DROP TABLE viewing_event")
+            storage.connection.execute("UPDATE schema_version SET version=2")
+        storage.initialize()
+        self.assertEqual(storage.get_pending_decision(decision.decision_id), decision)
+        self.assertEqual(storage.schema_version(), SCHEMA_VERSION)
+        self.assertEqual(storage.connection.execute("SELECT count(*) FROM viewing_event").fetchone()[0], 0)
 
     def test_identity_mapping_supports_positive_and_negative_decisions(self) -> None:
         storage = self._storage()
@@ -96,6 +117,21 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(entry.actor, "system")
         self.assertEqual(entry.action, "config_checked")
         self.assertEqual(entry.details, {"result": "ok"})
+
+    def test_confirmed_deletion_is_exact_identity_and_explicit_verified_outcome(self):
+        storage = self._storage()
+        identity = MediaIdentity("tmdb", "558")
+        for details in ({}, {"verified": True, "outcome": "failed", "source": "curatarr"},
+                        {"verified": True, "outcome": "success", "source": "missing_file_scan"}):
+            storage.append_audit_log(actor="system", action="media_file_deleted", media_key=str(identity), details=details)
+        self.assertFalse(storage.has_confirmed_file_deletion([identity]))
+        storage.record_confirmed_file_deletion(identity, actor="admin", source="admin_verified")
+        self.assertTrue(storage.has_confirmed_file_deletion([identity]))
+        self.assertFalse(storage.has_confirmed_file_deletion([MediaIdentity("imdb", "558")]))
+        self.assertFalse(storage.has_confirmed_file_deletion([MediaIdentity("tmdb", "999")]))
+        self.assertFalse(storage.has_confirmed_file_deletion([]))
+        with self.assertRaises(ValueError):
+            storage.record_confirmed_file_deletion(identity, actor="system", source="missing_file_scan")
 
 
 if __name__ == "__main__":

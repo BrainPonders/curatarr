@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import hashlib
+import json
 from pathlib import Path
 
 from curatarr.domain import ArrRuntimeState, DurableState, MediaIdentity, MediaItem, MediaType
 from curatarr.services import PendingDecisionService
+from curatarr.services.decisions import search_add_state_fingerprint
 from curatarr.storage import Storage
 from curatarr.workflows.search_add import DecisionPath, SearchAddPlanner
 
@@ -31,6 +34,21 @@ def _movie(
 
 
 class PendingDecisionServiceTests(unittest.TestCase):
+    def test_legacy_owned_snapshot_is_preserved_and_superseded_after_mapping_change(self):
+        service = self._service()
+        summary = SearchAddPlanner().plan(candidate=_movie(), ryot_item=_movie(
+            durable_states={DurableState.LIBRARY, DurableState.PREVIOUSLY_ACQUIRED}))
+        current = service.persist_search_add_decision(summary, audience="telegram:user:1",
+                                                     state_fingerprint=search_add_state_fingerprint(summary))
+        legacy_context = current.context
+        legacy_context["ryot_item"]["durable_states"] = ["library", "owned"]
+        legacy_hash = hashlib.sha256(json.dumps(legacy_context, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        legacy = service.storage.create_pending_decision(media_key="tmdb:558", decision_type="reactivate",
+            audience="telegram:user:1", state_fingerprint=legacy_hash, context=legacy_context)
+        updated = service.supersede_if_stale(legacy.decision_id, search_add_state_fingerprint(summary))
+        self.assertEqual(updated.status, "superseded")
+        self.assertEqual(updated.context["ryot_item"]["durable_states"], ["library", "owned"])
+
     def _service(self) -> PendingDecisionService:
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)

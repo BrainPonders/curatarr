@@ -7,7 +7,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from curatarr.config import ConfigError, expand_env, load_config, parse_duration
+import yaml
+
+from curatarr.config import ConfigError, expand_env, load_config, parse_config, parse_duration
 
 
 VALID_CONFIG = """
@@ -22,7 +24,9 @@ ryot:
   scan_interval: 45m
   collections:
     archived: Archived
-    owned: Owned
+    library: Library
+    previously_acquired: Previously acquired
+    deleted: Deleted
     radarr: Radarr
     sonarr: Sonarr
 radarr:
@@ -56,6 +60,43 @@ logging:
 
 
 class ConfigTests(unittest.TestCase):
+    def test_viewing_scan_interval_is_explicit_and_defaults_without_enabling_delivery(self):
+        raw = yaml.safe_load(VALID_CONFIG)
+        self.assertEqual(parse_config(raw).telegram.viewing_scan_interval.seconds, 300)
+        raw["telegram"]["viewing_scan_interval"] = "10m"
+        self.assertEqual(parse_config(raw).telegram.viewing_scan_interval.seconds, 600)
+        raw["telegram"]["viewing_scan_interval"] = "0m"
+        with self.assertRaises(ConfigError):
+            parse_config(raw)
+    def test_custom_collection_contract_and_legacy_owned_key(self):
+        raw = yaml.safe_load(VALID_CONFIG)
+        raw["ryot"]["collections"] = {"archived": "Archived", "radarr": "Radarr", "sonarr": "Sonarr",
+                                      "owned": "Legacy inventory"}
+        collections = parse_config(raw).ryot.collections
+        self.assertEqual(collections.library, "Library")
+        self.assertEqual(collections.previously_acquired, "Previously acquired")
+        self.assertEqual(collections.deleted, "Deleted")
+        self.assertFalse(hasattr(collections, "owned"))
+
+    def test_invalid_or_overlapping_collection_mappings_are_rejected(self):
+        for key, value in (("deleted", "Owned"), ("library", " Completed "),
+                           ("previously_acquired", "library"), ("deleted", ""), ("library", None)):
+            with self.subTest(key=key, value=value):
+                raw = yaml.safe_load(VALID_CONFIG)
+                raw["ryot"]["collections"][key] = value
+                with self.assertRaises(ConfigError):
+                    parse_config(raw)
+
+    def test_runtime_uses_configured_collection_names(self):
+        from curatarr.runtime import build_search_decisions
+        raw = yaml.safe_load(VALID_CONFIG)
+        raw["tmdb"] = {"api_key": "test"}
+        names = {key: "Household " + value for key, value in raw["ryot"]["collections"].items()}
+        raw["ryot"]["collections"] = names
+        adapter = build_search_decisions(parse_config(raw)).ryot_adapter
+        for key, value in names.items():
+            self.assertEqual(getattr(adapter.collections, key), value)
+
     def test_expand_env_requires_referenced_variables(self) -> None:
         with self.assertRaisesRegex(ConfigError, "MISSING"):
             expand_env("token: ${MISSING}", environ={})

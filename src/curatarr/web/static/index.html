@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Curatarr</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/static/app.js" defer></script>
+  <script src="/static/sources.js" defer></script>
+</head>
+<body>
+  <header><div class="brand-area"><div class="brand-line"><a href="/" class="brand">Curatarr</a><button id="status-info" class="info-button" aria-label="Information and credits" title="Information and credits"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v2"/></svg></button></div><span class="mode">Household · Read only</span></div><div class="header-tools"><button id="watch-check-in" hidden aria-label="Viewing inbox" title="Viewing inbox" aria-pressed="false" aria-controls="viewing-panel"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span id="watch-count" hidden aria-hidden="true"></span></button><div id="maintenance-toggle-control" hidden><button id="maintenance-toggle" aria-label="Admin" title="Admin" aria-pressed="false" aria-controls="maintenance"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linejoin="round" d="M18.93 9.13 L19.31 10.31 L21.82 10.09 L21.82 13.91 L19.31 13.69 L18.93 14.87 L18.93 14.87 L18.36 15.97 L20.29 17.59 L17.59 20.29 L15.97 18.36 L14.87 18.93 L14.87 18.93 L13.69 19.31 L13.91 21.82 L10.09 21.82 L10.31 19.31 L9.13 18.93 L9.13 18.93 L8.03 18.36 L6.41 20.29 L3.71 17.59 L5.64 15.97 L5.07 14.87 L5.07 14.87 L4.69 13.69 L2.18 13.91 L2.18 10.09 L4.69 10.31 L5.07 9.13 L5.07 9.13 L5.64 8.03 L3.71 6.41 L6.41 3.71 L8.03 5.64 L9.13 5.07 L9.13 5.07 L10.31 4.69 L10.09 2.18 L13.91 2.18 L13.69 4.69 L14.87 5.07 L14.87 5.07 L15.97 5.64 L17.59 3.71 L20.29 6.41 L18.36 8.03 L18.93 9.13 Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div></header>
+  <main>
+    <nav id="library-navigation" class="library-navigation" aria-label="Movie library" hidden><button id="library-search" aria-pressed="true">Search</button><button id="library-requests" aria-pressed="false">Requests</button><button id="library-suggestions" aria-pressed="false">Suggestions</button></nav>
+    <section id="suggestions-panel" aria-labelledby="suggestions-heading" hidden>
+      <h1 id="suggestions-heading">Suggestions</h1>
+      <p class="fact-note">Choose what belongs in our catalogue. Nothing is downloaded until you confirm an action.</p>
+      <div class="suggestion-toolbar"><select id="suggestions-view" aria-label="Suggestion view"><option value="pending">Pending</option><option value="declined">Passed</option></select><button id="suggestions-refresh">Refresh</button></div>
+      <p id="suggestions-notice" role="status" aria-live="polite"></p><div id="suggestions-cards"></div>
+      <button id="suggestions-continue" hidden>Continue</button>
+    </section>
+    <section id="requests-panel" aria-labelledby="requests-heading" hidden>
+      <h1 id="requests-heading">Wanted requests</h1>
+      <p class="fact-note">IMDb requests waiting for movie metadata or an action. Keep waiting, review the available choices, or withdraw a request.</p>
+      <p id="requests-notice" role="status" aria-live="polite"></p><div id="requests-cards"></div><button id="requests-refresh">Refresh</button>
+    </section>
+    <form id="search-form" role="search">
+      <label for="query" class="sr-only">Movie title, optional year</label>
+      <div class="search-bar"><input id="query" name="q" type="search" maxlength="200" placeholder="Movie title, optional year" required autocomplete="off"><button type="submit" id="search-submit">Search</button></div>
+    </form>
+    <p id="message" role="status" aria-live="polite">Connecting to Telegram...</p>
+    <section id="results" hidden aria-label="Movie results">
+      <div class="results-toolbar"><div role="group" aria-label="Results view"><button id="poster-mode" aria-pressed="true">Posters</button><button id="list-mode" aria-pressed="false">List</button></div></div>
+      <div id="carousel">
+        <article class="movie-info" aria-label="Movie information">
+        <div class="poster-stage"><img id="poster" alt=""><div id="no-poster" hidden>Poster unavailable</div></div>
+        <div class="movie-heading"><h1 id="movie-title"></h1><span id="movie-year"></span></div>
+        <details id="description"><summary><span>Description</span><span class="movie-ratings" aria-label="Public movie ratings"><span class="movie-rating" id="imdb-rating" title="IMDb rating unavailable"><span class="imdb-logo" role="img" aria-label="IMDb">IMDb</span><span class="rating-value">—</span></span><span class="movie-rating" id="tmdb-rating" title="TMDB rating unavailable"><img src="/static/tmdb-logo.svg" alt="TMDB" width="48" height="16"><span class="rating-value">—</span></span></span></summary><p id="overview"></p></details>
+        </article>
+        <section class="household-summary" aria-label="Library status">
+          <div class="summary-heading"><h2 id="scope-heading">In our library</h2></div>
+          <dl class="summary-facts"><dt>Watched</dt><dd id="watch-status" aria-live="polite"></dd><dt>Status</dt><dd class="tags"><span id="availability" class="badge"></span><span id="deleted" class="badge" hidden title="A previous copy was explicitly confirmed deleted.">Deleted</span><span id="monitoring" class="badge" hidden></span><small id="library-note" hidden></small></dd><dt>Audio</dt><dd><span id="audio-languages" class="tags"></span><small id="audio-note"></small></dd></dl>
+          <p id="result-acquisition-notice" class="fact-note" role="status" aria-live="polite"></p>
+        </section>
+        <nav class="bottom-bar carousel-nav" aria-label="Browse movies"><span id="position" aria-live="polite"></span><div id="result-acquisition" hidden><button id="result-add" class="primary" disabled>Add movie</button></div><div class="nav-buttons"><button id="previous" title="Previous movie">Previous</button><button id="select" class="primary">Library status</button><button id="next" title="Next movie">Next</button></div></nav>
+      </div>
+      <div id="list" hidden></div>
+      <p id="list-position" hidden></p>
+    </section>
+    <section id="detail" hidden aria-label="Selected movie">
+      <h1 id="detail-title"></h1>
+      <p id="detail-summary" hidden></p>
+      <p id="detail-warning" role="status" hidden></p>
+      <section class="provider-section ryot-section" aria-label="Ryot library"><h2>Ryot <small>Our library · derived status</small></h2><dl id="ryot-facts" class="provider-facts"></dl><p id="ryot-note" class="fact-note"></p></section>
+      <section class="provider-section radarr-section" aria-label="Radarr acquisition"><h2>Radarr <small>Acquisition &amp; files</small></h2><dl id="radarr-facts" class="provider-facts"></dl><p id="radarr-profile-result" class="fact-note" role="status" aria-live="polite" hidden></p></section>
+      <section class="provider-section playback-section" aria-label="Playback library"><h2>Jellyfin <small>Ready copies &amp; audio</small></h2><dl id="playback-facts" class="provider-facts"></dl></section>
+      <section id="acquisition-actions" hidden aria-label="Movie acquisition">
+        <p id="acquisition-result" role="status" aria-live="polite"></p>
+      </section>
+      <nav class="bottom-bar detail-toolbar" aria-label="Library status actions"><button id="back">Back to results</button><button id="refresh" title="Refresh movie facts">Refresh</button></nav>
+    </section>
+    <section id="maintenance" hidden aria-labelledby="maintenance-heading">
+      <h1 id="maintenance-heading">Library maintenance</h1>
+      <div class="maintenance-branches" role="tablist" aria-label="Administration"><button id="sync-branch" role="tab" aria-selected="true" aria-controls="sync-panel"><span>Sync issues</span><span id="sync-count" class="admin-count" hidden></span></button><button id="declined-branch" role="tab" aria-selected="false" aria-controls="declined-panel"><span>Declined viewings</span><span id="declined-count" class="admin-count" hidden></span></button><button id="settings-branch" role="tab" aria-selected="false" aria-controls="settings-panel">Settings</button></div>
+      <section id="viewing-panel" aria-labelledby="maintenance-heading" hidden>
+        <p id="viewing-summary" class="fact-note"></p>
+        <p id="viewing-notice" role="status" class="fact-note"></p>
+        <p id="viewing-empty"></p>
+        <article id="viewing-movie" hidden>
+          <div class="maintenance-movie-heading"><div class="maintenance-artwork"><img id="viewing-poster" alt="" hidden><div id="viewing-no-poster">Poster unavailable</div></div><div class="maintenance-movie-info"><h2 id="viewing-title"></h2><p id="viewing-checked" class="fact-note"></p></div></div>
+          <dl id="viewing-facts" class="provider-facts"></dl>
+          <h3 id="feedback-heading">Awaiting feedback</h3><ul id="viewing-questions"></ul>
+          <div id="viewing-actions"></div>
+          <button id="viewing-reopen" hidden>Reopen in Telegram</button>
+        </article>
+        <nav class="bottom-bar maintenance-toolbar" aria-label="Viewing inbox navigation"><span id="viewing-position" aria-live="polite"></span><div class="maintenance-buttons viewing-buttons"><button id="viewing-previous">Previous</button><button id="viewing-next">Next</button><button id="viewing-refresh" class="primary">Refresh</button></div></nav>
+      </section>
+      <section id="sync-panel" role="tabpanel" aria-labelledby="sync-branch" hidden>
+      <section id="system-health" aria-label="System check">
+        <h2>System check</h2>
+        <p class="system-health-result" role="status">Maintenance needed: <strong id="system-health-value">Not checked</strong></p>
+        <p id="system-health-time" class="fact-note"></p>
+        <p id="system-health-notice" class="fact-note"></p>
+        <button id="system-health-check">Check now</button>
+      </section>
+      <button id="sync-viewing-open" hidden>Viewing requests <span id="sync-viewing-count">?</span></button>
+      <div id="sync-diagnostics" hidden>
+      <p class="maintenance-meta fact-note"><span id="maintenance-scan-time"></span><span id="maintenance-summary"></span></p>
+      <div class="maintenance-filters"><label for="maintenance-category">Issue type</label><select id="maintenance-category"><option value="all">All pending issues</option><option value="skipped">Skipped</option></select></div>
+      <div id="sync-library">
+      <p id="maintenance-notice" role="status" class="fact-note"></p>
+      <ul id="maintenance-technical" class="maintenance-technical" aria-label="Technical issues"></ul>
+      <article id="maintenance-movie" hidden>
+        <div class="maintenance-movie-heading"><div class="maintenance-artwork"><img id="maintenance-poster" alt="" hidden><div id="maintenance-no-poster">Poster unavailable</div></div><div class="maintenance-movie-info"><h2 id="maintenance-title" tabindex="-1"></h2><p id="maintenance-checked" class="fact-note"></p><dl id="maintenance-identities" class="provider-facts"></dl></div></div>
+        <div id="maintenance-findings"></div>
+      </article>
+      <nav class="bottom-bar maintenance-toolbar" aria-label="Maintenance navigation"><span id="maintenance-position" aria-live="polite"></span><div class="maintenance-buttons"><button id="maintenance-previous" title="Previous movie">Previous</button><button id="maintenance-next" title="Next movie">Next</button><button id="maintenance-skip" title="Park this movie for later review">Skip</button><button id="maintenance-refresh" class="primary" title="Run a complete scan and recheck the selected movie">Refresh</button></div></nav>
+      </div>
+      </div>
+      <section id="sync-viewing-panel" hidden><p id="sync-viewing-notice" role="status"></p><div id="sync-viewing-movies"></div><button id="sync-viewing-refresh">Refresh</button></section>
+      </section>
+      <section id="declined-panel" role="tabpanel" aria-labelledby="declined-branch" hidden><p class="fact-note">Review household answers. Confirm the viewing or send it back for another review.</p><p id="declined-notice" role="status"></p><div id="declined-movies"></div><button id="declined-refresh">Refresh</button></section>
+      <section id="settings-panel" role="tabpanel" aria-labelledby="settings-branch" hidden>
+        <form id="name-form" class="settings-section">
+          <div class="settings-section-heading"><h2><label for="installation-name">Household or space name</label></h2></div>
+          <div class="settings-section-body">
+          <p class="fact-note">Name your household or entertainment space. Used in Curatarr and new viewing reviews.</p>
+          <div class="settings-name-row"><input id="installation-name" maxlength="60" placeholder="For example, Chickenhouse" required autocomplete="off"><button id="name-save" class="primary" type="submit">Save</button></div>
+          </div>
+        </form>
+        <section class="settings-section" aria-labelledby="automations-heading">
+          <div class="settings-section-heading"><h2 id="automations-heading">Automations</h2></div>
+          <div class="settings-section-body">
+          <div class="automation-row"><div class="setting-title"><label for="owned-cleanup">Automatic Owned cleanup</label><button id="owned-info" class="info-button" aria-label="About automatic Owned cleanup" aria-expanded="false" aria-controls="owned-explanation"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v2"/></svg></button></div><input id="owned-cleanup" type="checkbox" role="switch" aria-label="Automatic Owned cleanup" aria-describedby="owned-last-run"></div>
+          <p id="owned-explanation" class="fact-note" hidden>Removes the Owned tag from movies in Ryot, including existing movies. Series, other collections, viewing history, ratings and media files are preserved. Runs daily while the Telegram bot is running, starting shortly after first enabling. Turning it off stops future work; an already submitted Ryot job may finish.</p>
+          <p id="owned-last-run" class="fact-note" aria-live="polite">Last run: Never run</p>
+          <div class="automation-heading"><h3>Telegram messages</h3><button id="prompt-info" class="info-button" aria-label="About Telegram message cleanup" aria-expanded="false" aria-controls="prompt-explanation"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v2"/></svg></button></div>
+          <p id="prompt-explanation" class="fact-note" hidden>Removes selected viewing prompts 36 hours after sending. These options are independent. Unanswered questions remain in Viewing inbox and can be reopened in Telegram. Telegram cannot delete messages older than 48 hours, so a long outage may leave older messages in the chat.</p>
+          <div class="automation-row"><label for="cleanup-answered">Remove answered prompts</label><input id="cleanup-answered" class="automation-switch" type="checkbox" role="switch" aria-describedby="prompt-timeout prompt-last-run"></div>
+          <div class="automation-row"><label for="cleanup-unanswered">Remove unanswered prompts</label><input id="cleanup-unanswered" class="automation-switch" type="checkbox" role="switch" aria-describedby="prompt-timeout prompt-last-run"></div>
+          <p id="prompt-timeout" class="fact-note">After 36 hours</p>
+          <p id="prompt-last-run" class="fact-note" aria-live="polite">Last run: Never run</p>
+          </div>
+        </section>
+        <section id="source-settings" class="settings-section" aria-labelledby="sources-heading" hidden>
+          <div class="settings-section-heading"><h2 id="sources-heading">Movie sources</h2></div>
+          <div class="settings-section-body">
+          <p id="source-settings-notice" role="status" aria-live="polite"></p>
+          <section class="settings-subsection" aria-labelledby="discovery-source-heading">
+          <h3 id="discovery-source-heading">Discovery suggestions</h3>
+          <p class="fact-note source-definition">Source: TMDB Discover · Movies for your review.</p>
+          <form id="discovery-form" class="source-form">
+            <div class="automation-row"><label for="discovery-enabled">Collect suggestions daily</label><input id="discovery-enabled" class="automation-switch" type="checkbox" role="switch"></div>
+            <p class="fact-note">Browse Suggestions whenever you want. Notifications are off; unanswered movies remain available.</p>
+            <div class="source-fields"><label>Released within (months)<input id="discovery-months" type="number" min="1" max="120" required></label><label>Min. rating / 10<input id="discovery-rating" type="number" min="0" max="10" step="0.1" required></label><label>Min. votes<input id="discovery-votes" type="number" min="0" max="1000000" required></label></div>
+            <details><summary>Excluded genres</summary><div id="discovery-genres" class="source-genres"></div></details>
+            <p class="fact-note">A movie matching any excluded genre is filtered from suggestions. Your wanted list and manual searches are unaffected.</p>
+            <div class="source-buttons"><button class="primary" type="submit">Save filters</button><button id="discovery-check" type="button">Collect now</button></div><p id="discovery-health" class="fact-note"></p>
+          </form>
+          </section>
+          <details id="wanted-settings"><summary>Personal IMDb watchlist</summary>
+            <p class="fact-note">Direct unattended access is unavailable. Import a complete CSV export from IMDb. The first import records every entry as already handled and requests no downloads.</p>
+            <a href="https://help.imdb.com/article/imdb/track-movies-tv/faq-for-the-list-feature/GNQMN47VZSE7KW38" target="_blank" rel="noopener noreferrer">IMDb export help</a>
+            <form id="wanted-form" class="source-form">
+              <label for="wanted-user">IMDb user identifier</label><input id="wanted-user" placeholder="ur1234567" pattern="ur[0-9]{1,16}" required maxlength="18">
+              <div class="automation-row"><label for="wanted-enabled">Process new wanted entries</label><input id="wanted-enabled" class="automation-switch" type="checkbox" role="switch"></div>
+              <label for="wanted-mode">New-entry action</label><select id="wanted-mode"><option value="add_search">Add and search</option><option value="catalogue_only">Catalogue only</option></select>
+              <div id="wanted-download-choices"><label for="wanted-profile">Download profile</label><select id="wanted-profile"></select><label for="wanted-root">Library folder</label><select id="wanted-root"></select></div>
+              <button class="primary" type="submit">Save wanted policy</button>
+            </form>
+            <form id="wanted-import-form" class="source-form">
+              <label for="wanted-file">Complete watchlist export</label><input id="wanted-file" type="file" accept=".csv,text/csv" required>
+              <label for="wanted-count">Total entries shown on IMDb</label><input id="wanted-count" type="number" min="0" max="50000" required>
+              <label class="source-attestation"><input id="wanted-complete" type="checkbox" required> This export contains the entire selected watchlist.</label>
+              <button id="wanted-import" type="submit">Import snapshot</button>
+            </form><p id="wanted-health" class="fact-note"></p>
+          </details>
+          </div>
+        </section>
+        <section id="direct-viewing-settings" class="settings-section" aria-labelledby="direct-viewing-heading" hidden>
+          <div class="settings-section-heading"><h2 id="direct-viewing-heading">Jellyfin viewing</h2><button id="viewing-info" class="info-button" aria-label="About Jellyfin viewing" aria-expanded="false" aria-controls="viewing-explanation"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v2"/></svg></button></div>
+          <div class="settings-section-body">
+          <p id="viewing-explanation" class="fact-note" hidden>Selected accounts trigger household confirmations after playback stops or 15 minutes without activity. First Yes creates or verifies the shared watch in Ryot, then offers rating. Unplayed events never erase shared history. Pause the Jellyfin integration in Ryot before enabling, so watches have one source.</p>
+          <form id="direct-viewing-form" class="source-form">
+            <div class="automation-row"><label for="direct-viewing-enabled">Receive viewing activity</label><input id="direct-viewing-enabled" class="automation-switch" type="checkbox" role="switch"></div>
+            <div class="source-fields source-fields-two"><label>Started at %<input id="viewing-minimum" type="number" min="0" max="99" required></label><label>Completed at %<input id="viewing-completed" type="number" min="1" max="100" required></label></div>
+            <fieldset><legend>Household playback accounts</legend><div id="viewing-accounts" class="source-genres"></div></fieldset>
+            <button class="primary" type="submit">Save viewing settings</button>
+          </form>
+          <p id="direct-viewing-notice" role="status" aria-live="polite"></p>
+          </div>
+        </section>
+        <p id="settings-notice" role="status" aria-live="polite"></p>
+      </section>
+    </section>
+    <dialog id="acquisition-dialog" aria-labelledby="acquisition-title">
+      <div class="acquisition-header">
+        <h2 id="acquisition-title" tabindex="-1">Add movie</h2>
+        <p id="acquisition-movie"></p>
+        <div id="acquisition-mode-options" role="tablist" aria-label="Add movie path">
+          <button id="acquisition-mode-download" role="tab" aria-selected="true" aria-controls="acquisition-choices">Add to download</button>
+          <button id="acquisition-mode-catalogue" role="tab" aria-selected="false" aria-controls="catalogue-watch-options" tabindex="-1">Register in catalogue</button>
+        </div>
+      </div>
+      <div class="acquisition-body">
+        <p id="acquisition-description" class="fact-note"></p>
+        <p id="acquisition-history" class="fact-note" hidden></p>
+        <div id="acquisition-choices" role="tabpanel" aria-labelledby="acquisition-mode-download">
+          <p id="acquisition-profile-label" class="catalogue-field-label">Download profile</p><input id="acquisition-profile" type="hidden"><div id="acquisition-profile-buttons" role="group" aria-labelledby="acquisition-profile-label"></div>
+          <label for="acquisition-root">Library folder</label><select id="acquisition-root"></select>
+        </div>
+        <div id="catalogue-watch-options" role="tabpanel" aria-labelledby="acquisition-mode-catalogue" hidden>
+          <label class="catalogue-watched"><input id="catalogue-watched" type="checkbox"> I've watched this</label>
+          <fieldset id="catalogue-watch-details" disabled>
+            <label for="catalogue-watch-date">Watched on (optional)</label><input id="catalogue-watch-date" type="date">
+            <p id="catalogue-rating-label" class="catalogue-field-label">Your rating (optional)</p>
+            <input id="catalogue-watch-rating" type="hidden" value="">
+            <div id="catalogue-rating-buttons" class="check-in-row" role="group" aria-labelledby="catalogue-rating-label">
+              <button type="button" data-rating="1" aria-pressed="false" aria-label="Rate 1 out of 5">1</button>
+              <button type="button" data-rating="2" aria-pressed="false" aria-label="Rate 2 out of 5">2</button>
+              <button type="button" data-rating="3" aria-pressed="false" aria-label="Rate 3 out of 5">3</button>
+              <button type="button" data-rating="4" aria-pressed="false" aria-label="Rate 4 out of 5">4</button>
+              <button type="button" data-rating="5" aria-pressed="false" aria-label="Rate 5 out of 5">5</button>
+            </div>
+            <p class="fact-note">Tap the selected rating again to clear it. Leave the date empty if unknown. Existing viewings and ratings are preserved.</p>
+          </fieldset>
+        </div>
+        <p id="acquisition-notice" role="status" aria-live="polite"></p>
+      </div>
+      <div class="acquisition-footer">
+        <button id="acquisition-confirm" class="primary">Confirm add and search</button>
+        <button id="acquisition-cancel">Cancel</button>
+      </div>
+    </dialog>
+    <dialog id="radarr-profile-dialog" aria-labelledby="radarr-profile-title">
+      <div class="acquisition-header"><h2 id="radarr-profile-title" tabindex="-1">Change profile</h2><p id="radarr-profile-movie"></p></div>
+      <div class="acquisition-body">
+        <p class="fact-note">Update the download profile for this movie. No search is requested; monitoring, folder and existing files stay unchanged.</p>
+        <p id="radarr-profile-current"></p>
+        <div id="radarr-profile-choices" role="group" aria-label="Download profile"></div>
+        <p id="radarr-profile-notice" role="status" aria-live="polite"></p>
+      </div>
+      <div class="acquisition-footer"><button id="radarr-profile-save" class="primary" disabled>Confirm profile change</button><button id="radarr-profile-cancel">Cancel</button></div>
+    </dialog>
+    <dialog id="correction-dialog" aria-labelledby="correction-title">
+      <h2 id="correction-title">Update Ryot?</h2>
+      <p id="correction-movie"></p>
+      <p>Add Previously acquired using Radarr's imported-file record as evidence. No network-drive inspection is performed.</p>
+      <p>No monitoring, profiles, files, or viewing history will change.</p>
+      <button id="correction-confirm" class="primary">Confirm correction</button>
+      <button id="correction-cancel">Cancel</button>
+    </dialog>
+    <dialog id="viewing-reset-dialog" aria-labelledby="viewing-reset-title">
+      <h2 id="viewing-reset-title">Clear viewing history?</h2>
+      <p id="viewing-reset-movie"></p>
+      <p id="viewing-reset-description"></p>
+      <p>Ratings, reviews and library membership will be retained. This cannot be undone automatically.</p>
+      <button id="viewing-reset-confirm" class="danger-button">Clear viewing history</button>
+      <button id="viewing-reset-cancel">Cancel</button>
+    </dialog>
+    <dialog id="definitions" aria-labelledby="info-title">
+      <div class="info-heading"><h2 id="info-title">Information</h2><button id="close-definitions">Close</button></div>
+      <section id="credits" aria-labelledby="credits-title"><h3 id="credits-title">About &amp; Credits</h3><a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer"><img src="/static/tmdb-logo.svg" alt="TMDB" width="80">The Movie Database (TMDB)</a><p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p></section>
+      <h3>Viewing and playback facts</h3>
+      <dl>
+        <dt>Watched</dt><dd>Completed viewings in the shared Ryot account. Zero means no recorded completions, not proof nobody has watched it.</dd>
+        <dt>Ready to watch</dt><dd>A matching movie has a media source in Jellyfin, regardless of its quality or upgrade monitoring.</dd>
+        <dt>Monitored / Unmonitored</dt><dd>Current Radarr acquisition policy, separate from whether a title is wanted. Monitored does not prove an upgrade is downloading or that current quality is final. Omitted when monitoring is not confirmed.</dd>
+        <dt>Jellyfin availability</dt><dd>Ready to watch means a playable copy is confirmed. Not available means a successful check found no playable copy. Check unavailable means readiness could not be confirmed; see Library check for the reason. Jellyfin does not acquire movies; Radarr handles acquisition and monitoring.</dd>
+        <dt>Audio</dt><dd>Languages from audio tracks of current playback copies, not subtitles, desired profiles or release advertisements.</dd>
+      </dl>
+    </dialog>
+    <template id="status-legend">
+      <section aria-labelledby="legend-title">
+        <h3 id="legend-title">Status legend</h3>
+        <p>Our library combines Ryot history and intent with current Arr/Jellyfin checks. These status summaries are derived; they are not new Ryot collections, and automatic synchronization is not enabled yet.</p>
+        <dl><dt>Available</dt><dd>A ready Jellyfin copy is confirmed.</dd><dt>Wanted</dt><dd>Active in Arr or recorded as active in Ryot, but not ready to watch yet. Monitoring is a separate acquisition policy.</dd><dt>Archived</dt><dd>Explicitly no longer wanted. A remaining file or Arr entry is shown as a synchronization conflict, not silently hidden.</dd><dt>Recorded</dt><dd>Known in Ryot, with no active acquisition or archive decision.</dd><dt>Unknown / Status unavailable</dt><dd>Unknown means no matching Ryot record or active copy was found. Status unavailable means required checks could not be completed; it does not mean absence.</dd><dt>Deleted</dt><dd>A previous copy was explicitly confirmed deleted. This is a secondary badge, never inferred from Owned, archive membership, or missing files. Hidden while a current copy is present or its absence is uncertain. Historical deletion capture awaits the controlled-removal workflow; no deletion actions are enabled here.</dd></dl>
+        <ul class="legend">
+          <li><span class="badge" data-kind="downloaded">Downloaded</span><small>Green: Radarr has a file, regardless of monitoring. This alone does not confirm Jellyfin readiness.</small></li>
+          <li><span class="badge" data-kind="not_downloaded">Not downloaded</span><small>Grey: Radarr has no file. This is not an error or proof of deletion.</small></li>
+          <li><span class="badge" data-kind="monitored">Monitored</span><small>Blue: Radarr monitoring is enabled. It does not mean a download or upgrade is in progress.</small></li>
+          <li><span class="badge" data-kind="unmonitored">Unmonitored</span><small>Grey: Radarr monitoring is disabled. This does not establish whether the profile target was reached.</small></li>
+          <li><span class="badge" data-kind="ready">Ready to watch</span><small>Green: a matching Jellyfin media source is confirmed, independently of Radarr monitoring or desired quality.</small></li>
+          <li><span class="badge" data-kind="information">English</span> <span class="badge" data-kind="information">French</span><small>Darker neutral badges identify confirmed informational facts, not disabled options. Audio comes from each current Jellyfin copy; unknown tracks remain explicitly labelled.</small></li>
+          <li><span class="badge" data-kind="achieved">4K ✓</span> <span class="badge">Remux bonus -</span> <span class="badge">English ?</span><small>Upgrade goals: green/check means matched, grey/dash means not matched, and a question mark means unknown. Bonuses are preferences, not mandatory requirements. These are compact Radarr classifications, not a full profile audit or proof of active searching. Open Radarr for complete release eligibility.</small></li>
+        </ul>
+        <p>Quality cutoff is the selected Radarr profile's upgrade target, not proof of final quality. Custom-format requirements and other release protections remain Radarr's responsibility.</p>
+      </section>
+    </template>
+  </main>
+</body>
+</html>

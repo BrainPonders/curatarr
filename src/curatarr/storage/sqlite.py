@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import Any
 from curatarr.domain import MediaIdentity
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 5
 
 
 class StorageError(RuntimeError):
@@ -39,6 +40,7 @@ class PendingDecision:
     state_fingerprint: str
     status: str
     context: dict[str, Any]
+    expires_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -64,17 +66,194 @@ class Storage:
     def close(self) -> None:
         self.connection.close()
 
-    def initialize(self) -> None:
+    def get_cursor(self, name: str) -> int:
+        row = self.connection.execute("SELECT value FROM runtime_cursor WHERE name = ?", (name,)).fetchone()
+        return int(row["value"]) if row is not None else 0
+
+    def start_reconciliation(self) -> int:
         with self.connection:
-            self.connection.executescript(SCHEMA_SQL)
+            cursor = self.connection.execute(
+                "INSERT INTO job_run(job_name, status) VALUES ('movie_reconciliation', 'running')")
+        return int(cursor.lastrowid)
+
+    def maintenance_progress(self, user_id: int, *, source="maintenance_progress") -> dict:
+        if source not in {"maintenance_progress", "viewing_progress"}:
+            raise ValueError("Unknown progress source.")
+        row = self.connection.execute(
+            "SELECT payload_json FROM state_snapshot WHERE media_key = ? AND source = ?",
+            (f"telegram:{user_id}", source)).fetchone()
+        return json.loads(row["payload_json"]) if row else {"cursor": None, "skipped": [], "category": "all", "parked": False}
+
+    def save_maintenance_progress(self, user_id: int, progress: dict, *, source="maintenance_progress") -> None:
+        if source not in {"maintenance_progress", "viewing_progress"}:
+            raise ValueError("Unknown progress source.")
+        with self.connection:
             self.connection.execute(
-                """
-                INSERT INTO schema_version(version)
-                VALUES (?)
-                ON CONFLICT(id) DO UPDATE SET version = excluded.version
-                """,
-                (SCHEMA_VERSION,),
+                "INSERT INTO state_snapshot(media_key, source, fingerprint, payload_json) "
+                "VALUES (?, ?, '', ?) ON CONFLICT(media_key, source) "
+                "DO UPDATE SET payload_json = excluded.payload_json, updated_at = CURRENT_TIMESTAMP",
+                (f"telegram:{user_id}", source, json.dumps(progress, sort_keys=True)))
+
+    def viewing_followups(self) -> tuple[PendingDecision, ...]:
+        """Only genuine open household follow-ups, never search or sync decisions."""
+        rows = self.connection.execute(
+            "SELECT * FROM pending_decision WHERE decision_type = 'viewing_followup' "
+            "AND audience = 'shared_household' AND status = 'open' ORDER BY id").fetchall()
+        return tuple(_pending_decision_from_row(row) for row in rows)
+
+    def refresh_movie_findings(self, media_key: str, expected: list[dict], replacements: list[dict]) -> None:
+        """Compare-and-swap one freshly checked movie, without touching other titles."""
+        with self.connection:
+            self.connection.execute("UPDATE pending_decision SET status = status WHERE media_key = ?", (media_key,))
+            rows = self.connection.execute(
+                "SELECT * FROM pending_decision WHERE media_key = ? AND audience = 'admin' AND status = 'open' "
+                "AND substr(decision_type, 1, 10) = 'reconcile:'", (media_key,)).fetchall()
+            current = {row["id"]: json.loads(row["context_json"]) for row in rows}
+            if current != {item["decision_id"]: item["context"] for item in expected}:
+                raise StorageError("Maintenance findings changed; refresh before continuing.")
+            by_kind = {row["decision_type"][10:]: row for row in rows}
+            retained = set()
+            for item in replacements:
+                if item["media_key"] != media_key:
+                    raise StorageError("Maintenance evidence belongs to a different movie.")
+                fingerprint = hashlib.sha256(json.dumps(item["context"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                previous = by_kind.get(item["kind"])
+                if previous and previous["state_fingerprint"] == fingerprint:
+                    retained.add(previous["id"])
+                    continue
+                if previous:
+                    self.connection.execute("UPDATE pending_decision SET status = 'superseded' WHERE id = ?", (previous["id"],))
+                inserted = self.connection.execute(
+                    "INSERT INTO pending_decision(media_key, decision_type, audience, state_fingerprint, context_json) "
+                    "VALUES (?, ?, 'admin', ?, ?)", (media_key, "reconcile:" + item["kind"], fingerprint,
+                                                    json.dumps(item["context"], sort_keys=True)))
+                retained.add(inserted.lastrowid)
+            for row in rows:
+                if row["id"] not in retained:
+                    self.connection.execute("UPDATE pending_decision SET status = 'resolved' WHERE id = ? AND status = 'open'", (row["id"],))
+
+    def publish_reconciliation(self, run_id: int, findings: list[dict], errors: list[str], counts: dict) -> dict:
+        """Publish one snapshot atomically; failed/older scans never clear pending findings."""
+        with self.connection:
+            # Take the write lock before comparing run IDs or modifying the shared queue.
+            cursor = self.connection.execute("UPDATE job_run SET cursor_json = ? WHERE id = ? AND status = 'running' "
+                                             "AND job_name = 'movie_reconciliation'",
+                                             (json.dumps(counts, sort_keys=True), run_id))
+            if cursor.rowcount != 1:
+                raise StorageError("Reconciliation run is not open.")
+            latest = self.connection.execute(
+                "SELECT MAX(id) FROM job_run WHERE job_name = 'movie_reconciliation'").fetchone()[0]
+            status = "superseded" if latest != run_id else "failed" if errors else "completed"
+            if status == "completed":
+                open_rows = self.connection.execute(
+                    "SELECT * FROM pending_decision WHERE status = 'open' AND audience = 'admin' "
+                    "AND substr(decision_type, 1, 10) = 'reconcile:'").fetchall()
+                existing = {(row["media_key"], row["decision_type"]): row for row in open_rows}
+                retained = set()
+                for finding in findings:
+                    decision_type = "reconcile:" + finding["kind"]
+                    context = finding["context"]
+                    fingerprint = hashlib.sha256(json.dumps(context, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                    previous = existing.get((finding["media_key"], decision_type))
+                    if previous is not None and previous["state_fingerprint"] == fingerprint:
+                        retained.add(previous["id"])
+                        continue
+                    if previous is not None:
+                        self.connection.execute("UPDATE pending_decision SET status = 'superseded' WHERE id = ?", (previous["id"],))
+                    inserted = self.connection.execute(
+                        "INSERT INTO pending_decision(media_key, decision_type, audience, state_fingerprint, context_json) "
+                        "VALUES (?, ?, 'admin', ?, ?)",
+                        (finding["media_key"], decision_type, fingerprint, json.dumps(context, sort_keys=True)))
+                    retained.add(inserted.lastrowid)
+                for row in open_rows:
+                    if row["id"] not in retained:
+                        self.connection.execute("UPDATE pending_decision SET status = 'resolved' WHERE id = ? AND status = 'open'",
+                                                 (row["id"],))
+            if status != "superseded":
+                for provider in ("ryot", "radarr"):
+                    key = "provider:" + provider
+                    issue = self.connection.execute(
+                        "SELECT id FROM operational_issue WHERE issue_type = 'reconciliation_provider_unavailable' "
+                        "AND media_key = ? AND status = 'open'", (key,)).fetchone()
+                    if provider in errors:
+                        context = json.dumps({"provider": provider, "run_id": run_id,
+                                              "message": "Snapshot unavailable or incomplete; earlier findings were not revalidated."})
+                        if issue is None:
+                            self.connection.execute(
+                                "INSERT INTO operational_issue(issue_type, severity, media_key, context_json) "
+                                "VALUES ('reconciliation_provider_unavailable', 'error', ?, ?)", (key, context))
+                        else:
+                            self.connection.execute("UPDATE operational_issue SET context_json = ? WHERE id = ?", (context, issue["id"]))
+                    elif issue is not None:
+                        self.connection.execute("UPDATE operational_issue SET status = 'resolved' WHERE id = ?", (issue["id"],))
+            self.connection.execute("UPDATE job_run SET status = ?, finished_at = CURRENT_TIMESTAMP WHERE id = ?", (status, run_id))
+            return self.reconciliation_report()
+
+    def reconciliation_report(self) -> dict:
+        """Stored reports are historical; callers must run a fresh scan before review."""
+        if self.connection.in_transaction:
+            return self._reconciliation_report()
+        with self.connection:
+            self.connection.execute("BEGIN")
+            return self._reconciliation_report()
+
+    def _reconciliation_report(self) -> dict:
+        run = self.connection.execute(
+            "SELECT * FROM job_run WHERE job_name = 'movie_reconciliation' ORDER BY id DESC LIMIT 1").fetchone()
+        validated = self.connection.execute(
+            "SELECT id, finished_at FROM job_run WHERE job_name = 'movie_reconciliation' "
+            "AND status = 'completed' ORDER BY id DESC LIMIT 1").fetchone()
+        findings = []
+        for row in self.connection.execute(
+                "SELECT * FROM pending_decision WHERE audience = 'admin' AND status = 'open' "
+                "AND substr(decision_type, 1, 10) = 'reconcile:' ORDER BY media_key, decision_type"):
+            findings.append({"decision_id": row["id"], "media_key": row["media_key"],
+                             "kind": row["decision_type"][10:], "context": json.loads(row["context_json"])})
+        issues = [json.loads(row["context_json"]) for row in self.connection.execute(
+            "SELECT context_json FROM operational_issue WHERE issue_type = 'reconciliation_provider_unavailable' "
+            "AND status = 'open' ORDER BY media_key")]
+        return {"run_id": run["id"] if run else None, "status": run["status"] if run else "not_run",
+                "observed_at": run["finished_at"] if run else None,
+                "counts": json.loads(run["cursor_json"]) if run else {},
+                "findings": findings, "finding_count": len(findings),
+                "movies_requiring_attention": len({finding["media_key"] for finding in findings}),
+                "technical_issues": issues, "read_only": True,
+                "last_validated_at": validated["finished_at"] if validated else None,
+                "last_validated_run_id": validated["id"] if validated else None,
+                "revalidated": bool(run and run["status"] == "completed")}
+
+    def set_cursor(self, name: str, value: int) -> None:
+        with self.connection:
+            self.connection.execute(
+                "INSERT INTO runtime_cursor(name, value) VALUES (?, ?) "
+                "ON CONFLICT(name) DO UPDATE SET value = excluded.value", (name, value),
             )
+
+    def initialize(self) -> None:
+        # executescript implicitly commits: execute complete statements inside an
+        # explicit transaction so a failed additive migration cannot publish a newer version.
+        from curatarr.storage.journal import JOURNAL_SCHEMA
+        if self.connection.in_transaction:
+            raise StorageError("Finish the current transaction before initializing storage.")
+        with self.connection:
+            self.connection.execute("BEGIN IMMEDIATE")
+            if self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_version'").fetchone():
+                existing = self.connection.execute("SELECT version FROM schema_version WHERE id=1").fetchone()
+                if existing is None or type(existing[0]) is not int or existing[0] < 1:
+                    raise StorageError("Workflow database has an invalid schema version; refusing to migrate.")
+                if existing[0] > SCHEMA_VERSION:
+                    raise StorageError("Workflow database is newer than this runtime; refusing to downgrade.")
+            statement = ""
+            for line in (SCHEMA_SQL + JOURNAL_SCHEMA).splitlines():
+                statement += line + "\n"
+                if sqlite3.complete_statement(statement):
+                    self.connection.execute(statement)
+                    statement = ""
+            if statement.strip():
+                raise StorageError("Incomplete workflow schema migration.")
+            self.connection.execute(
+                "INSERT INTO schema_version(id,version) VALUES(1,?) "
+                "ON CONFLICT(id) DO UPDATE SET version=excluded.version", (SCHEMA_VERSION,))
 
     def schema_version(self) -> int:
         try:
@@ -166,7 +345,10 @@ class Storage:
         audience: str,
         state_fingerprint: str,
         context: dict[str, Any] | None = None,
+        lifetime_seconds: int = 86400,
     ) -> PendingDecision:
+        if lifetime_seconds <= 0:
+            raise ValueError("Pending decision lifetime must be positive.")
         context_json = json.dumps(context or {}, sort_keys=True)
         with self.connection:
             cursor = self.connection.execute(
@@ -176,11 +358,13 @@ class Storage:
                     decision_type,
                     audience,
                     state_fingerprint,
-                    context_json
+                    context_json,
+                    expires_at
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, datetime('now', ?))
                 """,
-                (media_key, decision_type, audience, state_fingerprint, context_json),
+                (media_key, decision_type, audience, state_fingerprint, context_json,
+                 f"+{lifetime_seconds} seconds"),
             )
         decision_id = int(cursor.lastrowid)
         decision = self.get_pending_decision(decision_id)
@@ -195,6 +379,18 @@ class Storage:
         if row is None:
             return None
         return _pending_decision_from_row(row)
+
+    def close_open_decision(self, decision_id: int, status: str) -> bool:
+        """Close an open decision once without reopening terminal decisions."""
+
+        if status not in {"resolved", "superseded", "expired"}:
+            raise ValueError("A terminal decision status is required.")
+        with self.connection:
+            cursor = self.connection.execute(
+                "UPDATE pending_decision SET status = ? WHERE id = ? AND status = 'open'",
+                (status, decision_id),
+            )
+        return cursor.rowcount == 1
 
     def update_pending_decision_status(self, decision_id: int, status: str) -> PendingDecision:
         normalized_status = status.strip().lower()
@@ -237,6 +433,35 @@ class Storage:
         assert row is not None
         return _audit_entry_from_row(row)
 
+    def record_confirmed_file_deletion(self, identity: MediaIdentity, *, actor: str, source: str) -> AuditEntry:
+        """Record verified completion, not an intent, missing-file observation, or UI action."""
+        if identity.namespace not in {"tmdb", "imdb"} or source not in {"curatarr", "admin_verified"} or not actor.strip():
+            raise ValueError("A stable movie identity, actor, and verified deletion source are required.")
+        return self.append_audit_log(actor=actor, action="media_file_deleted", media_key=str(identity),
+                                     details={"verified": True, "outcome": "success", "source": source})
+
+    def has_confirmed_file_deletion(self, identities) -> bool:
+        keys = sorted({str(i) for i in identities if i.namespace in {"tmdb", "imdb"}})
+        if not keys:
+            return False
+        placeholders = ",".join("?" for _ in keys)
+        try:
+            rows = self.connection.execute(
+                f"SELECT details_json FROM audit_log WHERE action = 'media_file_deleted' AND media_key IN ({placeholders})",
+                keys,
+            )
+            for row in rows:
+                try:
+                    details = json.loads(row["details_json"])
+                except (ValueError, TypeError):
+                    continue
+                if (isinstance(details, dict) and details.get("verified") is True
+                        and details.get("outcome") == "success" and details.get("source") in {"curatarr", "admin_verified"}):
+                    return True
+        except sqlite3.Error as exc:
+            raise StorageError("Deletion evidence could not be read.") from exc
+        return False
+
 
 def _pending_decision_from_row(row: sqlite3.Row) -> PendingDecision:
     return PendingDecision(
@@ -247,6 +472,7 @@ def _pending_decision_from_row(row: sqlite3.Row) -> PendingDecision:
         state_fingerprint=row["state_fingerprint"],
         status=row["status"],
         context=json.loads(row["context_json"]),
+        expires_at=row["expires_at"],
     )
 
 
@@ -261,6 +487,11 @@ def _audit_entry_from_row(row: sqlite3.Row) -> AuditEntry:
 
 
 SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS runtime_cursor (
+    name TEXT PRIMARY KEY,
+    value INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS schema_version (
     id INTEGER PRIMARY KEY CHECK (id = 1) DEFAULT 1,
     version INTEGER NOT NULL
@@ -323,6 +554,10 @@ CREATE TABLE IF NOT EXISTS approval_request (
     FOREIGN KEY(pending_decision_id) REFERENCES pending_decision(id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS reconciliation_open_finding
+ON pending_decision(media_key, decision_type, audience)
+WHERE status = 'open' AND substr(decision_type, 1, 10) = 'reconcile:';
+
 CREATE TABLE IF NOT EXISTS operational_issue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     issue_type TEXT NOT NULL,
@@ -351,5 +586,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
     media_key TEXT,
     details_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS viewing_event (
+    source TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    media_key TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    decision_id INTEGER REFERENCES pending_decision(id),
+    PRIMARY KEY(source, event_id)
 );
 """

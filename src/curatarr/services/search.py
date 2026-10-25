@@ -86,6 +86,14 @@ class SearchDecisionService:
                 return result.value
         return None
 
+    def lookup_history(self, candidate: MediaItem) -> MediaItem | None:
+        """Read shared durable history independently of execution-system availability."""
+        return self._lookup_ryot(candidate)
+
+    def lookup_execution(self, candidate: MediaItem) -> MediaItem | None:
+        """Read execution facts without changing acquisition state."""
+        return self._lookup_arr(candidate)
+
     def _lookup_arr(self, candidate: MediaItem) -> MediaItem | None:
         if candidate.media_type is MediaType.MOVIE and self.radarr_adapter is not None:
             for identity in _identity_priority(candidate):

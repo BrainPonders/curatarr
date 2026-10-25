@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -36,12 +36,20 @@ class UsersConfig:
 @dataclass(frozen=True)
 class TelegramConfig:
     bot_token: str
+    viewing_scan_interval: Duration = Duration(300, "5m")
+
+
+@dataclass(frozen=True)
+class TmdbConfig:
+    api_key: str
 
 
 @dataclass(frozen=True)
 class RyotCollectionsConfig:
     archived: str
-    owned: str
+    library: str
+    previously_acquired: str
+    deleted: str
     radarr: str
     sonarr: str
 
@@ -76,6 +84,8 @@ class JellyfinConfig:
     url: str
     api_key: str
     reception_checks: JellyfinReceptionConfig
+    removal_webhook_token: str | None = field(default=None, repr=False)
+    viewing_webhook_token: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)
@@ -94,6 +104,16 @@ class LoggingConfig:
 
 
 @dataclass(frozen=True)
+class MaintenanceConfig:
+    show_diagnostics: bool = False
+
+
+@dataclass(frozen=True)
+class CoordinatorConfig:
+    enabled: bool = False
+
+
+@dataclass(frozen=True)
 class CuratarrConfig:
     users: UsersConfig
     telegram: TelegramConfig
@@ -104,6 +124,9 @@ class CuratarrConfig:
     policy: PolicyConfig
     identity: IdentityConfig
     logging: LoggingConfig
+    tmdb: TmdbConfig | None = None
+    maintenance: MaintenanceConfig = MaintenanceConfig()
+    coordinator: CoordinatorConfig = CoordinatorConfig()
 
 
 def load_config(path: str | Path) -> CuratarrConfig:
@@ -167,8 +190,11 @@ def parse_duration(value: Any) -> Duration:
 
 def parse_config(data: dict[str, Any]) -> CuratarrConfig:
     """Parse a raw mapping into the typed Curatarr config model."""
-
+    maintenance = data.get("maintenance", {})
+    if not isinstance(maintenance, dict) or type(maintenance.get("show_diagnostics", False)) is not bool:
+        raise ConfigError("maintenance.show_diagnostics must be a boolean.")
     return CuratarrConfig(
+        coordinator=_parse_coordinator(data.get("coordinator", {})),
         users=_parse_users(_require_mapping(data, "users")),
         telegram=_parse_telegram(_require_mapping(data, "telegram")),
         ryot=_parse_ryot(_require_mapping(data, "ryot")),
@@ -178,7 +204,16 @@ def parse_config(data: dict[str, Any]) -> CuratarrConfig:
         policy=_parse_policy(_require_mapping(data, "policy")),
         identity=_parse_identity(_require_mapping(data, "identity")),
         logging=_parse_logging(_require_mapping(data, "logging")),
+        tmdb=TmdbConfig(api_key=_require_str(_require_mapping(data, "tmdb"), "api_key", "tmdb.api_key"))
+        if "tmdb" in data else None,
+        maintenance=MaintenanceConfig(maintenance.get("show_diagnostics", False)),
     )
+
+
+def _parse_coordinator(data):
+    if not isinstance(data, dict) or type(data.get("enabled", False)) is not bool:
+        raise ConfigError("coordinator.enabled must be true or false.")
+    return CoordinatorConfig(data.get("enabled", False))
 
 
 def _parse_users(data: dict[str, Any]) -> UsersConfig:
@@ -189,21 +224,25 @@ def _parse_users(data: dict[str, Any]) -> UsersConfig:
 
 
 def _parse_telegram(data: dict[str, Any]) -> TelegramConfig:
-    return TelegramConfig(bot_token=_require_str(data, "bot_token", "telegram.bot_token"))
+    return TelegramConfig(bot_token=_require_str(data, "bot_token", "telegram.bot_token"),
+                          viewing_scan_interval=parse_duration(data.get("viewing_scan_interval", "5m")))
 
 
 def _parse_ryot(data: dict[str, Any]) -> RyotConfig:
     collections = _require_mapping(data, "collections", "ryot.collections")
+    # Canonical defaults let existing local configurations migrate without reusing Owned.
+    collections = {"library": "Library", "previously_acquired": "Previously acquired", "deleted": "Deleted", **collections}
+    names = {key: _require_str(collections, key, f"ryot.collections.{key}").strip()
+             for key in ("library", "archived", "previously_acquired", "deleted", "radarr", "sonarr")}
+    normalized = [value.casefold() for value in names.values()]
+    reserved = {"owned", "completed", "watchlist", "in progress", "monitoring", "custom", "reminders"}
+    if len(set(normalized)) != len(normalized) or reserved.intersection(normalized):
+        raise ConfigError("ryot.collections must name distinct custom collections, not native Ryot collections.")
     return RyotConfig(
         url=_require_str(data, "url", "ryot.url"),
         api_key=_require_str(data, "api_key", "ryot.api_key"),
         scan_interval=parse_duration(data.get("scan_interval", "30m")),
-        collections=RyotCollectionsConfig(
-            archived=_require_str(collections, "archived", "ryot.collections.archived"),
-            owned=_require_str(collections, "owned", "ryot.collections.owned"),
-            radarr=_require_str(collections, "radarr", "ryot.collections.radarr"),
-            sonarr=_require_str(collections, "sonarr", "ryot.collections.sonarr"),
-        ),
+        collections=RyotCollectionsConfig(**names),
     )
 
 
@@ -219,9 +258,17 @@ def _parse_arr(data: dict[str, Any], section: str) -> ArrConfig:
 
 def _parse_jellyfin(data: dict[str, Any]) -> JellyfinConfig:
     checks = _require_mapping(data, "reception_checks", "jellyfin.reception_checks")
+    token = data.get("removal_webhook_token")
+    if token is not None and (not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9_-]{43,128}", token)):
+        raise ConfigError("jellyfin.removal_webhook_token must be a random URL-safe token of at least 43 characters.")
+    viewing_token = data.get('viewing_webhook_token')
+    if viewing_token is not None and (not isinstance(viewing_token,str) or not re.fullmatch(r'[A-Za-z0-9_-]{43,128}',viewing_token)):
+        raise ConfigError('jellyfin.viewing_webhook_token must be a random URL-safe token of at least 43 characters.')
     return JellyfinConfig(
         url=_require_str(data, "url", "jellyfin.url"),
         api_key=_require_str(data, "api_key", "jellyfin.api_key"),
+        removal_webhook_token=token,
+        viewing_webhook_token=viewing_token,
         reception_checks=JellyfinReceptionConfig(
             enabled=bool(checks.get("enabled", True)),
             first_check_delay=parse_duration(checks.get("first_check_delay", "5m")),
@@ -249,7 +296,10 @@ def _parse_identity(data: dict[str, Any]) -> IdentityConfig:
 
 
 def _parse_logging(data: dict[str, Any]) -> LoggingConfig:
-    return LoggingConfig(level=str(data.get("level", "INFO")).upper())
+    level = str(data.get("level", "INFO")).upper()
+    if level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+        raise ConfigError("logging.level must be DEBUG, INFO, WARNING, ERROR, or CRITICAL.")
+    return LoggingConfig(level=level)
 
 
 def _require_mapping(
@@ -276,7 +326,7 @@ def _tuple_of_ints(value: Any, path: str) -> tuple[int, ...]:
         raise ConfigError(f"{path} must be a list of integer Telegram user IDs.")
     result = []
     for item in value:
-        if not isinstance(item, int):
+        if type(item) is not int or item <= 0:
             raise ConfigError(f"{path} must contain only integer Telegram user IDs.")
         result.append(item)
     return tuple(result)

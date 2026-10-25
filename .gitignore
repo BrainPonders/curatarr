@@ -17,6 +17,8 @@ documentation/**/*.local.md
 .env.local
 .env.*.local
 settings.py
+# Application settings service is source, not local credential configuration.
+!src/curatarr/services/settings.py
 settings.local.py
 docker/compose/.env
 docker/compose/.env.dev

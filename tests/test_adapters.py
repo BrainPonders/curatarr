@@ -83,7 +83,7 @@ class AdapterInterfaceTests(unittest.TestCase):
             media_type=MediaType.MOVIE,
             title="Spider-Man 2",
             identities=frozenset({identity}),
-            durable_states=frozenset({DurableState.LIBRARY, DurableState.OWNED}),
+            durable_states=frozenset({DurableState.LIBRARY, DurableState.PREVIOUSLY_ACQUIRED}),
         )
         adapter: RyotAdapter = _FakeRyotAdapter(item)
 

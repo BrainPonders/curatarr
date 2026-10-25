@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol, Sequence
+from typing import Any, Protocol, Sequence
 
 from curatarr.adapters.base import AdapterResult
 from curatarr.domain import ArrRuntimeState, DurableState, MediaIdentity, MediaItem, MediaType
@@ -10,6 +10,9 @@ from curatarr.domain import ArrRuntimeState, DurableState, MediaIdentity, MediaI
 
 class RyotAdapter(Protocol):
     """Durable-state adapter boundary."""
+
+    def scan_movies(self) -> AdapterResult[Sequence[MediaItem]]:
+        """Read all associated movie records, including those outside Library."""
 
     def get_item(self, identity: MediaIdentity) -> AdapterResult[MediaItem | None]:
         """Return the current durable media item matching an identity, if known."""
@@ -25,7 +28,7 @@ class RyotAdapter(Protocol):
         identity: MediaIdentity,
         state: DurableState,
     ) -> AdapterResult[MediaItem]:
-        """Apply a durable state such as Archived, Owned, Radarr, or Sonarr."""
+        """Apply a custom durable membership under the Ryot collection contract."""
 
     def remove_state(
         self,
@@ -37,6 +40,18 @@ class RyotAdapter(Protocol):
 
 class RadarrAdapter(Protocol):
     """Movie execution-system adapter boundary."""
+
+    def scan_movies(self) -> AdapterResult[Sequence[MediaItem]]:
+        """Read a complete, validated snapshot of current movie records."""
+
+    def quality_profile(self, profile_id: int) -> dict[str, Any]:
+        """Read the selected profile's name, upgrade policy, and quality cutoff."""
+
+    def file_details(self, file_id: int, movie_id: int) -> dict[str, Any]:
+        """Read native file score and classification, validating movie/file ownership."""
+
+    def core_formats(self) -> list[dict[str, Any]]:
+        """Describe supported core format goals without evaluating their matching rules."""
 
     def lookup_movie(self, identity: MediaIdentity) -> AdapterResult[MediaItem | None]:
         """Read current Radarr movie state as a domain media item."""
@@ -122,6 +137,9 @@ class TelegramAdapter(Protocol):
 
 class MetadataAdapter(Protocol):
     """Search and cross-resolution adapter boundary."""
+
+    def movie_poster(self, tmdb_id: str) -> str | None:
+        """Read optional movie artwork by exact TMDB ID, never by title matching."""
 
     def search(self, query: str, media_type: MediaType) -> AdapterResult[Sequence[MediaItem]]:
         """Search external metadata and return domain media candidates."""

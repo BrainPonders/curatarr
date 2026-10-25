@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+import re
 from typing import Any
 
 from curatarr.adapters import AdapterResult
+from curatarr.domain.media import public_rating
 from curatarr.domain import MediaIdentity, MediaItem, MediaType
 from curatarr.integrations.tmdb.client import TmdbClient, TmdbError
 
@@ -16,12 +19,22 @@ class TmdbMetadataAdapter:
 
     client: TmdbClient
 
+    @lru_cache(maxsize=256)
+    def movie_poster(self, tmdb_id: str) -> str | None:
+        raw = self.client.movie_details(tmdb_id)
+        if not isinstance(raw, dict) or type(raw.get("id")) is not int or raw["id"] != int(tmdb_id):
+            raise TmdbError("TMDB movie response did not match the requested identifier.")
+        return _poster_url(raw.get("poster_path"))
+
     def search(self, query: str, media_type: MediaType) -> AdapterResult[tuple[MediaItem, ...]]:
-        response = (
-            self.client.search_movie(query)
-            if media_type is MediaType.MOVIE
-            else self.client.search_series(query)
-        )
+        if media_type is MediaType.MOVIE:
+            title, year = split_movie_query(query)
+            response = self.client.search_movie(title, year=year)
+            if year and response.get("results") == []:
+                # Numeric suffixes can be part of a title, e.g. "Class of 1984".
+                response = self.client.search_movie(query)
+        else:
+            response = self.client.search_series(query)
         results = response.get("results")
         if not isinstance(results, list):
             raise TmdbError("TMDB search response did not contain a results list.")
@@ -73,6 +86,16 @@ class TmdbMetadataAdapter:
         return frozenset(identities)
 
 
+def split_movie_query(query: str) -> tuple[str, str | None]:
+    query = " ".join(query.split())
+    if len(query) >= 2 and query.startswith('"') and query.endswith('"'):
+        return query[1:-1], None
+    match = re.fullmatch(r"(.+\S)\s+(?:\((\d{4})\)|(\d{4}))", query)
+    if match and 1888 <= int(match[2] or match[3]) <= 2099:
+        return match[1], match[2] or match[3]
+    return query, None
+
+
 def _item_from_search_result(raw: dict[str, Any], media_type: MediaType) -> MediaItem:
     tmdb_id = raw.get("id")
     title = raw.get("title") if media_type is MediaType.MOVIE else raw.get("name")
@@ -92,7 +115,16 @@ def _item_from_search_result(raw: dict[str, Any], media_type: MediaType) -> Medi
         title=title,
         year=_year_from_search_result(raw, media_type),
         identities=frozenset(identities),
+        poster_url=_poster_url(raw.get("poster_path")),
+        overview=raw.get("overview") if isinstance(raw.get("overview"), str) else None,
+        tmdb_rating=public_rating(raw.get("vote_average"), raw.get("vote_count")),
     )
+
+
+def _poster_url(path: Any) -> str | None:
+    if isinstance(path, str) and re.fullmatch(r"/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png)", path):
+        return f"https://image.tmdb.org/t/p/w500{path}"
+    return None
 
 
 def _year_from_search_result(raw: dict[str, Any], media_type: MediaType) -> int | None:

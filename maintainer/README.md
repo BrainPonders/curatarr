@@ -2,12 +2,18 @@
 
 This folder is the tracked maintainer surface for Curatarr.
 
+The repository supports both product development and deployment/commissioning/database-correction work. Keep reviewed execution procedures here; keep credentials, actual installation mappings, backups, reports and private chat handovers in the ignored local safety bucket. Routine Mini App maintenance is not the interface for commissioning batches or complex technical repairs.
+
 ## Index
 
+- [Feature register](FEATURES.md): current scope, implementation, availability and test/gap links
+- [Roadmap](ROADMAP.md): W01–W09 delivery order, exit gates and DATA tasks
+- [Decisions](../documentation/Decisions.md): approved changes and superseded choices
+
 - `maintainer/WORKFLOW.md`
-  - authoritative maintainer lifecycle for this repository
+  - authoritative lifecycle, change control, user acceptance and handover checklist
 - `maintainer/development/README.md`
-  - local scaffold and container-bootstrap workflow
+  - runtime verification, deployment/bootstrap, and controlled database-correction procedure
 - `maintainer/development/README-dry-run.md`
   - live Ryot/Radarr dry-run comparison helper usage
 - `maintainer/development/dev-build.sh`

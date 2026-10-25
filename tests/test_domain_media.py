@@ -34,16 +34,16 @@ class MediaDomainTests(unittest.TestCase):
         self.assertFalse(can_authorize_destructive_action(MatchConfidence.MEDIUM))
         self.assertFalse(can_authorize_destructive_action(MatchConfidence.WEAK))
 
-    def test_owned_does_not_imply_file_present(self) -> None:
+    def test_previous_acquisition_does_not_imply_file_present(self) -> None:
         item = MediaItem(
             media_type=MediaType.MOVIE,
             title="Spider-Man 2",
             identities=frozenset({MediaIdentity("tmdb", "558")}),
-            durable_states=frozenset({DurableState.LIBRARY, DurableState.OWNED}),
+            durable_states=frozenset({DurableState.LIBRARY, DurableState.PREVIOUSLY_ACQUIRED}),
             arr_runtime_state=ArrRuntimeState.NOT_ACTIVE,
         )
 
-        self.assertTrue(item.was_owned)
+        self.assertTrue(item.was_acquired)
         self.assertFalse(item.file_present)
 
     def test_watched_does_not_imply_archived(self) -> None:

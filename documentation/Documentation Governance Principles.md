@@ -138,3 +138,9 @@ Before considering documentation work complete, verify:
 - tracked docs do not duplicate local-only narrative material
 - runtime/config headers are consistent where the header-template model is in use
 - template reference lines remain visible where applicable
+
+## Evolving Product And External Handover
+
+The [workflow](../maintainer/WORKFLOW.md) owns the change-control procedure. The feature register owns implementation/availability, the roadmap owns order/gates, architecture owns behavior, the decision register owns material changes and the U checklist owns explicit user acceptance. These records reference each other rather than duplicating mutable status.
+
+Capture lessons learned in the same workstream: retain the prior decision as superseded, name its replacement, update affected contracts/features/tests and reassess earlier acceptance. Historical review snapshots must be labelled historical; they cannot override current owning records. Reproducible tests must not require private installation files. External handover requires an identified, reviewed Git baseline and fresh-checkout validation, not access to a private chat transcript.

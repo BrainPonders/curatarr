@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -23,7 +24,8 @@ class DurableState(str, Enum):
     LIBRARY = "library"
     WATCHED = "watched"
     ARCHIVED = "archived"
-    OWNED = "owned"
+    PREVIOUSLY_ACQUIRED = "previously_acquired"
+    DELETED = "deleted"
     RADARR = "radarr"
     SONARR = "sonarr"
 
@@ -100,6 +102,18 @@ class MediaItem:
     identities: frozenset[MediaIdentity] = field(default_factory=frozenset)
     durable_states: frozenset[DurableState] = field(default_factory=frozenset)
     arr_runtime_state: ArrRuntimeState = ArrRuntimeState.NOT_ACTIVE
+    poster_url: str | None = field(default=None, compare=False)
+    overview: str | None = field(default=None, compare=False)
+    completed_watch_count: int | None = field(default=None, compare=False)
+    last_watched_date: str | None = field(default=None, compare=False)
+    collection_names: tuple[str, ...] = field(default=(), compare=False)
+    quality_name: str | None = field(default=None, compare=False)
+    size_bytes: int | None = field(default=None, compare=False)
+    quality_profile_id: int | None = field(default=None, compare=False)
+    movie_file_id: int | None = field(default=None, compare=False)
+    original_language_id: int | None = field(default=None, compare=False)
+    tmdb_rating: float | None = field(default=None, compare=False)
+    imdb_rating: float | None = field(default=None, compare=False)
 
     @property
     def is_watched(self) -> bool:
@@ -110,8 +124,8 @@ class MediaItem:
         return DurableState.ARCHIVED in self.durable_states
 
     @property
-    def was_owned(self) -> bool:
-        return DurableState.OWNED in self.durable_states
+    def was_acquired(self) -> bool:
+        return DurableState.PREVIOUSLY_ACQUIRED in self.durable_states
 
     @property
     def file_present(self) -> bool:
@@ -137,3 +151,11 @@ def can_authorize_destructive_action(confidence: MatchConfidence) -> bool:
     """Return whether a match can authorize archive, delete, or removal flows."""
 
     return confidence is MatchConfidence.STRONG
+
+
+def public_rating(value: object, votes: object) -> float | None:
+    """Return a finite public score out of ten only when votes are recorded."""
+    if (type(votes) is not int or votes <= 0 or type(value) not in {int, float}
+            or not 0 <= value <= 10 or not math.isfinite(value)):
+        return None
+    return float(value)
