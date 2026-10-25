@@ -46,7 +46,8 @@ def main():
                 page.goto(f'http://127.0.0.1:{port}');page.set_default_timeout(10000)
                 page.locator('#query').fill('Movie');page.locator('#search-submit').click()
                 expect(page.locator('#movie-title')).to_have_text('Movie 0')
-                page.wait_for_function("document.querySelectorAll('.list-status:not([title=\"Checking…\"])').length === 3")
+                # New placeholders have no title; title!=Checking does not prove a read completed.
+                expect(page.locator('.list-status')).to_have_text(['Unknown'] * 3, timeout=10000)
                 first=[u for u in requests if '/api/search/' in u and u.endswith('/status')]
                 assert len(first)==3,first
                 page.locator('#next').click();expect(page.locator('#movie-title')).to_have_text('Movie 1')
