@@ -37,7 +37,7 @@ Updated 2026-10-25. Owns delivery order and exit gates; [Features](FEATURES.md) 
 | [W06](#coordinated-release-implementation-plan) | Disabled standalone draft | Unified removal/restoration implementation and commissioning |
 | [W07](#coordinated-release-implementation-plan) | Partial | Common Requests journey and cross-workflow acceptance |
 | [W08](#coordinated-release-implementation-plan) | Scaffold only | Actual combined container runtime and restore rehearsal |
-| [W09](#coordinated-release-implementation-plan) | Not complete | Current tests, native acceptance, historical data, clean baseline and explicit cutover |
+| [W09](#coordinated-release-implementation-plan) | Not complete | Release-candidate tests, native acceptance, historical data and explicit cutover; development-source baseline verified under F26 |
 
 ## Database Sanitising And Historical Reconciliation
 
@@ -53,4 +53,3 @@ Saved watch-preview evidence was re-evaluated on 2026-10-25, not rescanned: the 
 Older acquisition/deletion histories without evidence remain intentionally unknown. Native Owned, Library membership or a missing file cannot justify manufacturing Previously acquired, Deleted or Archived facts. The historical commissioning counts in the collection contract are not a current outstanding-repair count; any further backfill needs new evidence and its own reviewed scope.
 
 The protected first IMDb snapshot is a separate source-commissioning task under W04/W09, not permission to add all old list entries or a known catalogue inconsistency. Optional Owned cleanup remains a user-controlled policy. Do not mix either with the historical watched import or silently enable them as part of sanitising.
-

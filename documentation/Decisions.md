@@ -20,7 +20,6 @@ Append a stable D ID with date, authority, status, previous choice, replacement,
 | D008 | 2026-10-24–25 user feedback; Approved | Separate/long Add pages and selectors → single stable two-tab Add sheet, final confirmation, vertical native profile buttons; List status on right | Catalogue may optionally register past watch/rating without download. F03, F05–F08; U06–U09, U24–U31. Layout acceptance does not establish actual native download acceptance. |
 | D009 | 2026-10-25 user go-ahead; Approved | Proposed Library status management → explicit existing-movie Change profile beside Radarr profile | Bind actor/movie/native options/state; confirm one target and verify without requesting search or changing monitoring/path/files. F10; U32; AC03, AC17–AC19. Native save acceptance pending. |
 | D010 | 2026-10-25 user go-ahead after workflow review; Approved | Status reconstructed from narrative checkpoints → feature/roadmap/decision/test ownership and reproducible handover gates | Capture lessons learned in the same change; separate implementation, deployment and acceptance. F26; all W/AC/U records. Does not authorize staging/commit/push, historical batches, deployment cutover or publishing. |
-
 | D011 | 2026-10-25 explicit user instruction; Approved | Earlier workflow task withheld Git execution → complete baseline review, commit, fresh-checkout verification and synchronization to the existing development branch | User requested full completion including Git sync before further development. F26; W01/W09. Preserve private files and unrelated remotes/branches; no force push, production cutover, native batch, image publication or merge to main implied. This supersedes D010's execution restriction for this scoped Git task. |
 
 ## Decisions Still Needed
@@ -28,4 +27,4 @@ Append a stable D ID with date, authority, status, previous choice, replacement,
 - F17: supported automatic personal-list access and whether to replace discovery provider; current TMDB Discover/CSV paths remain explicit.
 - F19/F25: actual playback account allowlist and commissioning/cutover sequence; conservative saved-preview account is an assumption, not an accepted multi-account batch.
 - F20: evidence for earlier occurrences in multi-play source items; decide treatment of unresolved history only after investigation.
-- F24–F26: final release identity and concrete deployment commissioning remain execution gates; the development Git baseline is being verified under D011.
+- F24–F26: final release identity and concrete deployment commissioning remain execution gates; the development Git baseline passed independent checkout verification under D011; see the development guide.

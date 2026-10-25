@@ -356,12 +356,12 @@ The only Radarr mutation is `PUT /api/v3/movie/editor` with `movieIds` and `qual
 
 ## Reproducible Project Checks
 
-Use Python 3.11+ (CI uses 3.12). From a reviewed checkout, create/activate a virtual environment and install public dependencies:
+The verified handover/test environment uses Python 3.12 and `constraints-test.txt` for exact resolved test dependencies. The package declares Python 3.11+; this baseline does not claim a separate 3.11 verification run. From a reviewed checkout, create/activate a virtual environment and install public dependencies:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install '.[test,browser-test]'
+python -m pip install -c constraints-test.txt '.[test,browser-test]'
 PLAYWRIGHT_BROWSERS_PATH="$PWD/.local/playwright" python -m playwright install chromium
 python maintainer/test/check_project_records.py
 mkdir -p .local/test-tmp
@@ -378,12 +378,35 @@ TMPDIR="$PWD/.local/test-tmp" PYTHONPATH=src:tests python -m unittest test_radar
 PLAYWRIGHT_BROWSERS_PATH="$PWD/.local/playwright" python maintainer/test/browser_checks.py --only radarr_profiles quick_add sources
 ```
 
-The browser runner discovers every `tests/*_browser_check.py`, supplies the synthetic poster when required, stops on failure and imposes a per-journey timeout. Existing journeys cover their own mobile/desktop cases; optional `--dark` journeys should also be run directly for affected theme changes. CI runs record validation, unit tests and all default browser journeys with synthetic screenshot artifacts. A workflow file in source is not proof a hosted CI run has passed.
+The browser runner discovers every `tests/*_browser_check.py`, supplies the synthetic poster when required, stops on failure and imposes a per-journey timeout. Existing journeys cover their own mobile/desktop cases; optional `--dark` journeys should also be run directly for affected theme changes. CI verifies installed application imports/static assets as well as record validation, unit tests and all default browser journeys with synthetic screenshot artifacts. A workflow file in source is not proof a hosted CI run has passed.
 
 The record check validates canonical ID uniqueness/references, feature status vocabulary, required acceptance/coverage/gap fields, current-record local file/heading links and absence of private browser prerequisites. It cannot infer actual implementation correctness, verify approval, or establish native behavior. Human contract/code review remains required. Docker smoke remains a scaffold check and does not satisfy F24/AC20.
 
 ### Verification Record — Workflow Improvements, 2026-10-25
 
-Implementation adds feature/roadmap/decision ownership, current U32 status, revised U22 occurrence scope, public synthetic fixtures and CI/local runners. Verification completed on 2026-10-25: **716 unit tests passed**, including nine new record-gate regressions. `python maintainer/test/check_project_records.py` passed; `git diff --check` passed. All **11** discovered synthetic browser journeys passed through the runner, including acquisition, direct viewing, maintenance, Mini App, Quick Add, profile editing, preloading, sources, system monitoring, viewing corrections and household inbox. The final runner's repository-local temporary setting was separately rechecked with the preloading journey. CI YAML parsed with two jobs and read-only repository permissions; hosted CI has not run.
+Implementation adds feature/roadmap/decision ownership, current U32 status, revised U22 occurrence scope, public synthetic fixtures and CI/local runners. Verification completed on 2026-10-25: **716 unit tests passed**, including nine new record-gate regressions. `python maintainer/test/check_project_records.py` passed; `git diff --check` passed. All **11** discovered synthetic browser journeys passed through the runner, including acquisition, direct viewing, maintenance, Mini App, Quick Add, profile editing, preloading, sources, system monitoring, viewing corrections and household inbox. The final runner's repository-local temporary setting was separately rechecked with the preloading journey. At that pre-sync checkpoint, CI YAML parsed with two jobs and read-only repository permissions; hosted CI had not run.
 
-Commands are the reproducible suite/runner commands above, using the workspace virtual environment and installed workspace Chromium. Raw unit/browser/runner evidence and the exact Git-visible source-file SHA256 manifest are retained privately; they are not test inputs. Parent revision is `e03307c` on `codex/coordinator-movie-release`; the implementation is still uncommitted. The record validator rejects duplicate/unknown IDs, ambiguous states, missing files/headings, links outside the repository/private bucket and private browser prerequisites. It was also tested with the fixture checkout itself inside the private bucket, avoiding false positives from parent-directory names. Source remains a dirty working tree based on `e03307c`; no clean-checkout or hosted CI success is claimed. No provider writes, policy activation, runtime restart, historical batch or deployment cutover is part of this change.
+Commands are the reproducible suite/runner commands above, using the workspace virtual environment and installed workspace Chromium. Raw unit/browser/runner evidence and the exact Git-visible source-file SHA256 manifest are retained privately; they are not test inputs. Parent revision is `e03307c` on `codex/coordinator-movie-release`; the implementation is still uncommitted. The record validator rejects duplicate/unknown IDs, ambiguous states, missing files/headings, links outside the repository/private bucket and private browser prerequisites. It was also tested with the fixture checkout itself inside the private bucket, avoiding false positives from parent-directory names. That historical run preceded the reviewed Git baseline; current clean-checkout evidence is recorded below. No provider writes, policy activation, runtime restart, historical batch or deployment cutover is part of this change.
+
+
+## Git Baseline And Clean Checkout Verification — 2026-10-25
+
+D011 authorizes the reviewed source baseline and Git synchronization on `codex/coordinator-movie-release`, preserving `main` as the earlier baseline. Application/test source was independently cloned at **1f89779bbb8835eeed72095094ec744e0c75726a**. A new Python 3.12 virtual environment installed the public package and extras without system-site packages, private configuration or private fixtures. The subsequent documentation/CI/constraints commit preserves that application/test tree; always identify the exact revision with `git rev-parse HEAD` rather than infer it from package version 0.1.0.
+
+Verified from the independent checkout:
+
+- Public installation and `pip check` succeeded. Installed-package imports for Settings, web application and runtime succeeded outside the source path. All five packaged frontend assets were present; installed `curatarr --help` succeeded.
+- Record validation passed and **716 unit tests passed**.
+- All **11** synthetic browser journeys passed using that new environment. Public Chromium was reused as an installed tool; all application fixtures came from Git. No private installation files or provider access were required.
+- `constraints-test.txt` records the exact 21 dependency versions resolved by the fresh install. CI and the documented local commands use these constraints. Updating them requires a reviewed install/check run; this is a Python 3.12 test baseline, not a production image lock or a separate Python 3.11 acceptance claim.
+- The broad local `settings.py` ignore rule was hiding the application module; a narrow exception now includes `src/curatarr/services/settings.py`. CI verifies installed imports/assets before the unit suite so an omitted module cannot be concealed by a successful working-tree run.
+
+Start an external handover from the development branch (or a supplied exact revision), not the older default branch:
+
+```bash
+git clone --branch codex/coordinator-movie-release https://github.com/BrainPonders/curatarr.git
+cd curatarr
+git rev-parse HEAD
+```
+
+Then follow Reproducible Project Checks above. [Hosted checks](https://github.com/BrainPonders/curatarr/actions/workflows/checks.yml) own exact per-commit CI status; inspect the commit SHA associated with a run, not an unrelated green badge. Local passing checks are not hosted CI results. The source handover is ready for continued development with the feature register's explicit gaps. Dedicated Docker/runtime, native commissioning, historical import and production cutover remain separate incomplete gates. No provider writes, runtime restart, final-group move, tag or image release was part of Git synchronization.

@@ -14,7 +14,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install '.[test]'
+      - run: python -m pip install -c constraints-test.txt '.[test]'
+      - name: Check installed application and packaged assets
+        run: |
+          python - <<'PY'
+          import curatarr.services.settings
+          import curatarr.web.app
+          import curatarr.runtime
+          from importlib.resources import files
+          for name in ['index.html', 'app.js', 'sources.js', 'app.css', 'tmdb-logo.svg']:
+              assert (files('curatarr.web') / 'static' / name).is_file(), name
+          PY
       - run: python maintainer/test/check_project_records.py
       - run: git diff --check
       - run: python -m unittest discover -s tests
@@ -29,7 +39,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install '.[test,browser-test]'
+      - run: python -m pip install -c constraints-test.txt '.[test,browser-test]'
       - run: python -m playwright install --with-deps chromium
       - run: python maintainer/test/browser_checks.py
       - uses: actions/upload-artifact@v4

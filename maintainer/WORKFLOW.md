@@ -45,7 +45,7 @@ For a code change run focused checks and the full unit suite; UI changes require
 
 Start with the records above, then inspect relevant code. A private handover may supply installation context, answered questions and evidence locations; reconcile its current summary rather than reconstructing the product from chat history. Trust fresh repository/provider evidence over remembered claims. Do not inspect sibling projects.
 
-Current source contains schema5 and the coordinated movie runtime. The latest recorded Mac deployment is 2026-10-25, with profile editing available and direct Jellyfin intake still off pending setup/native commissioning. This is development availability, not a released Docker deployment or a fresh health assertion. See F10, F19 and F24–F26. D011 authorizes a reviewed Git baseline and fresh-checkout verification. Use the development guide for its recorded result and revision; do not assume a checkout matches a running deployment without that evidence.
+Current source contains schema5 and the coordinated movie runtime. The latest recorded Mac deployment is 2026-10-25, with profile editing available and direct Jellyfin intake still off pending setup/native commissioning. This is development availability, not a released Docker deployment or a fresh health assertion. See F10, F19 and F24–F26. D011 established a reviewed Git baseline and successful fresh-checkout verification. Use the development guide for its recorded result and revision; do not assume a checkout matches a running deployment without that evidence.
 
 ## Preparing A Handover
 
