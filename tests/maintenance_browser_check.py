@@ -132,8 +132,20 @@ def main():
                     expect(page.locator("#maintenance-no-poster")).to_be_visible()
                     expect(page.locator("#maintenance-poster")).to_be_hidden()
                     page.reload()
-                    page.locator("#maintenance-toggle").click()
+                    # Hold the first review while re-selecting Sync: one request and one epoch.
+                    held_reviews = []
+                    review_pattern = "**/api/maintenance/review"
+                    page.route(review_pattern, lambda route: held_reviews.append(route))
+                    with page.expect_request(review_pattern):
+                        page.locator("#maintenance-toggle").click()
+                    expect(page.locator("#maintenance")).to_have_attribute("aria-busy", "true")
+                    loading_epoch = page.evaluate("state.maintenanceEpoch")
                     page.locator("#sync-branch").click()
+                    assert page.evaluate("state.maintenanceEpoch") == loading_epoch
+                    assert len(held_reviews) == 1
+                    with page.expect_response(review_pattern):
+                        held_reviews.pop().continue_()
+                    page.unroute(review_pattern)
                     expect(page.locator("#maintenance-movie")).to_be_visible()
                     expect(page.locator("#maintenance-title")).to_have_text("Movie 2 (2026)")
                     page.locator("#maintenance-category").select_option("archived_active")

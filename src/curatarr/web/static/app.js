@@ -1004,6 +1004,8 @@ async function refreshAdminCounts(branch) {
   await Promise.allSettled(requests);
 }
 async function selectMaintenanceBranch(branch) {
+  // Re-selecting a loading tab must retain its request epoch and busy guard.
+  if (branch === state.maintenanceBranch && state.maintenanceBusy) return;
   state.maintenanceBranch = branch;
   state.maintenanceEpoch++;
   state.maintenancePosterEpoch++;
