@@ -391,7 +391,7 @@ Commands are the reproducible suite/runner commands above, using the workspace v
 
 ## Git Baseline And Clean Checkout Verification — 2026-10-25
 
-D011 authorizes the reviewed source baseline and Git synchronization on `codex/coordinator-movie-release`, preserving `main` as the earlier baseline. Application/test source was independently cloned at **1f89779bbb8835eeed72095094ec744e0c75726a**. A new Python 3.12 virtual environment installed the public package and extras without system-site packages, private configuration or private fixtures. The subsequent documentation/CI/constraints commit preserves that application/test tree; always identify the exact revision with `git rev-parse HEAD` rather than infer it from package version 0.1.0.
+D011 authorizes the reviewed source baseline and Git synchronization on `codex/coordinator-movie-release`, preserving `main` as the earlier baseline. Application/test source was independently cloned at **1f89779bbb8835eeed72095094ec744e0c75726a**. A new Python 3.12 virtual environment installed the public package and extras without system-site packages, private configuration or private fixtures. The subsequent documentation/CI/constraints commit preserved that application/test tree. Its first hosted run then exposed a startup race, documented below; always identify the exact revision with `git rev-parse HEAD` rather than infer it from package version 0.1.0.
 
 Verified from the independent checkout:
 
@@ -410,3 +410,8 @@ git rev-parse HEAD
 ```
 
 Then follow Reproducible Project Checks above. [Hosted checks](https://github.com/BrainPonders/curatarr/actions/workflows/checks.yml) own exact per-commit CI status; inspect the commit SHA associated with a run, not an unrelated green badge. Local passing checks are not hosted CI results. The source handover is ready for continued development with the feature register's explicit gaps. Dedicated Docker/runtime, native commissioning, historical import and production cutover remain separate incomplete gates. No provider writes, runtime restart, final-group move, tag or image release was part of Git synchronization.
+
+
+### Hosted Startup Regression
+
+The first hosted run at `850909d` passed records, installed-package checks and unit tests, then exposed a 320px search startup race. Search became enabled before the initial inbox-counter request completed; its late response restored an empty saved query over the user's newly typed input. Initialization now restores the saved draft before enabling Search, leaves no late draft/message mutation after the counter, and keeps the HTML submit button disabled until authenticated initialization completes. The browser journey holds that counter response at every standard viewport, types a different draft, releases the response and verifies the draft and subsequent real search. No fixed delay or weaker assertion hides the issue. This changes startup ordering only, with no provider mutation or policy change. Latest hosted evidence is attached to the exact fix revision in Actions; the earlier failure remains provenance.

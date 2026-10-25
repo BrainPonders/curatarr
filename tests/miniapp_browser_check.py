@@ -118,12 +118,26 @@ def main():
                         path=str(args.poster.resolve()), content_type="image/jpeg"))
                     page.add_init_script("window.__tgEvents = {}; window.Telegram = {WebApp: {initData: " + repr(signed_data()) +
                                          ", safeAreaInset:{}, contentSafeAreaInset:{}, onEvent(name, fn){window.__tgEvents[name]=fn}, ready(){}, expand(){}, BackButton: {show(){}, hide(){}, onClick(){}}}};")
-                    page.goto(f"http://127.0.0.1:{port}")
+                    # Hold the startup counter to reproduce the Linux CI race deterministically.
+                    # Search must remain usable and a late counter reply must preserve the new draft.
+                    held_summaries = []
+                    summary_pattern = "**/api/viewing/summary"
+                    page.route(summary_pattern, lambda route: held_summaries.append(route))
+                    page.add_init_script("sessionStorage.setItem('curatarr.query', 'Earlier query');")
+                    with page.expect_request(summary_pattern):
+                        page.goto(f"http://127.0.0.1:{port}")
                     expect(page.locator("#search-submit")).to_be_enabled()
+                    expect(page.locator("#query")).to_have_value("Earlier query")
                     page.locator("#query").fill("Spider-Man")
+                    assert len(held_summaries) == 1
+                    with page.expect_response(summary_pattern):
+                        held_summaries.pop().fulfill(json={"available": False, "pending_movie_count": 0})
+                    expect(page.locator("#watch-count")).to_have_text("0")
+                    expect(page.locator("#query")).to_have_value("Spider-Man")
+                    page.unroute(summary_pattern)
                     page.screenshot(path=str(args.output / f"search-{width}.png"), full_page=True)
                     print(f"Checking {width}x{height}", flush=True)
-                    page.locator("#search-submit").click(force=True)
+                    page.locator("#search-submit").click()
                     expect(page.locator("#watch-status")).to_have_text("2 times")
                     expect(page.locator("#availability")).to_have_text("Available")
                     expect(page.locator("#deleted")).to_be_hidden()

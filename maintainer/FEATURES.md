@@ -8,7 +8,7 @@ Scope: **Approved**, **Proposed**, **Deferred** or **Superseded**. Build: **Impl
 
 | ID / feature | Scope | Build | Availability | Package / requirements | User check | Evidence / remaining work |
 | --- | --- | --- | --- | --- | --- | --- |
-| F01 — Movie search, identity and navigation | Approved | Implemented | Mac dev | W03; AC03, AC17, AC19 | U03 | [Search](../src/curatarr/services/search.py), [browser](../tests/miniapp_browser_check.py); user acceptance pending |
+| F01 — Movie search, identity and navigation | Approved | Implemented | Mac dev | W03; AC03, AC17, AC19 | U03 | [Search](../src/curatarr/services/search.py), [browser](../tests/miniapp_browser_check.py); startup draft/counter race found by Linux CI corrected with a held-response browser regression; user acceptance pending |
 | F02 — Public IMDb/TMDB ratings | Approved | Implemented | Mac dev | W07; AC19 | U04 | [Display tests](../tests/test_display_status.py); retest missing scores; missing rating never proves unreleased |
 | F03 — Carousel preloading and right-side List status | Approved | Implemented | Mac dev | W07; AC19 | U24, U25 | [Browser](../tests/search_preload_browser_check.py); layout accepted, speed retest pending |
 | F04 — Library status, audio and evidence | Approved | Implemented | Mac dev | W07; AC03, AC19 | U05, U31 | [Display contract](../documentation/Media%20Status%20and%20Display%20Rules.md), [browser](../tests/acquisition_browser_check.py); no inferred history from Owned |

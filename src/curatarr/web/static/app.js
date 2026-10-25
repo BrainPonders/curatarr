@@ -1402,10 +1402,11 @@ async function start() {
     setDisplayName(me.display_name || "");
     state.showSyncDiagnostics = me.show_sync_diagnostics === true;
     $("maintenance-toggle-control").hidden = !(me.is_admin && me.maintenance_available);
-    $("search-submit").disabled = false;
-    await refreshWatchCount();
+    // Restore the draft before allowing input; a late counter reply must not erase a new search.
     try { $("query").value = sessionStorage.getItem("curatarr.query") || ""; } catch (_) { /* Storage is optional. */ }
     message("");
+    $("search-submit").disabled = false;
+    await refreshWatchCount();
   } catch (error) { message(error.message); }
 }
 start();
